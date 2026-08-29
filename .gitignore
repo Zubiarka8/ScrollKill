@@ -1,0 +1,27 @@
+﻿# OS
+.DS_Store
+Thumbs.db
+
+# Dependencies / build
+node_modules/
+dist/
+build/
+
+# Env / editors
+.env
+.vscode/
+.idea/
+
+# Gradle / Android build
+.gradle/
+.kotlin/
+.cxx/
+captures/
+*.apk
+*.aab
+*.hprof
+
+# Local config & signing — never commit
+local.properties
+*.jks
+*.keystore
