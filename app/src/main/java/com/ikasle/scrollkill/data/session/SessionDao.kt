@@ -36,6 +36,20 @@ interface SessionDao {
     )
     fun observePerAppUsageSince(sinceEpochMs: Long): Flow<List<PerAppUsage>>
 
+    /** One-shot counterpart of [observePerAppUsageSince], to seed the daily-usage meter at startup. */
+    @Query(
+        """
+        SELECT packageName,
+               SUM(durationMs) AS totalDurationMs,
+               SUM(interventionCount) AS totalInterventions,
+               COUNT(*) AS sessionCount
+        FROM sessions
+        WHERE endedAtEpochMs >= :sinceEpochMs
+        GROUP BY packageName
+        """,
+    )
+    suspend fun perAppUsageSince(sinceEpochMs: Long): List<PerAppUsage>
+
     @Query("SELECT COUNT(*) FROM sessions")
     suspend fun count(): Int
 }

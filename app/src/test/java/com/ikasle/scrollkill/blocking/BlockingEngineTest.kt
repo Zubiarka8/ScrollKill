@@ -118,4 +118,74 @@ class BlockingEngineTest {
 
         assertTrue(engine.decide(match(), 1_000L) is BlockingDecision.Intervene)
     }
+
+    // --- daily budget --------------------------------------------------------------------
+
+    /** Engine with a 20s budget for the default match package and a real (default-tuned) meter. */
+    private fun budgeted(budgetMs: Long = 20_000L) = BlockingEngine().apply {
+        dailyBudgetMsByPackage = mapOf("com.facebook.katana" to budgetMs)
+    }
+
+    @Test
+    fun `a blockable match under the daily budget returns None`() {
+        assertEquals(BlockingDecision.None, budgeted().decide(match(), 0L))
+    }
+
+    @Test
+    fun `metered time accrues until the budget is reached, then intervenes`() {
+        val engine = budgeted(budgetMs = 20_000L)
+
+        assertEquals(BlockingDecision.None, engine.decide(match(), 0L))        // used 0
+        assertEquals(BlockingDecision.None, engine.decide(match(), 10_000L))  // used 10s
+        assertTrue(engine.decide(match(), 20_000L) is BlockingDecision.Intervene) // used 20s
+    }
+
+    @Test
+    fun `once over the budget the anti-nag cooldown still applies`() {
+        val engine = budgeted(budgetMs = 20_000L)
+        engine.decide(match(), 0L)
+        engine.decide(match(), 10_000L)
+        assertTrue(engine.decide(match(), 20_000L) is BlockingDecision.Intervene)
+
+        assertEquals(BlockingDecision.None, engine.decide(match(), 21_000L))
+    }
+
+    @Test
+    fun `blocking disabled for a package beats its daily budget`() {
+        val engine = budgeted(budgetMs = 20_000L).apply {
+            blockingDisabledPackages = setOf("com.facebook.katana")
+        }
+        engine.decide(match(), 0L)
+
+        assertEquals(BlockingDecision.None, engine.decide(match(), 60_000L))
+    }
+
+    @Test
+    fun `seeded history over the budget intervenes on the first match`() {
+        val engine = budgeted(budgetMs = 20_000L)
+        engine.seedUsage(mapOf("com.facebook.katana" to 25_000L), 0L)
+
+        assertTrue(engine.decide(match(), 0L) is BlockingDecision.Intervene)
+    }
+
+    @Test
+    fun `a package with no configured budget is still blocked on sight`() {
+        val engine = budgeted(budgetMs = 20_000L) // budget only for com.facebook.katana
+
+        assertTrue(
+            engine.decide(match(pkg = "com.instagram.android", surface = Surface.SHORT_VIDEO), 0L)
+                is BlockingDecision.Intervene,
+        )
+    }
+
+    @Test
+    fun `reset clears accrued daily usage`() {
+        val engine = budgeted(budgetMs = 20_000L)
+        engine.seedUsage(mapOf("com.facebook.katana" to 25_000L), 0L)
+        assertTrue(engine.decide(match(), 0L) is BlockingDecision.Intervene)
+
+        engine.reset()
+
+        assertEquals(BlockingDecision.None, engine.decide(match(), 1_000L))
+    }
 }
