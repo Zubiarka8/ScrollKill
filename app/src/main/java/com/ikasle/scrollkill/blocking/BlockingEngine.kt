@@ -79,7 +79,7 @@ class BlockingEngine(
     }
 
     private companion object {
-        val DEFAULT_BLOCKABLE_SURFACES = setOf(Surface.FEED, Surface.SHORT_VIDEO)
+        val DEFAULT_BLOCKABLE_SURFACES = setOf(Surface.FEED, Surface.SHORT_VIDEO, Surface.EXPLORE)
         const val DEFAULT_MIN_CONFIDENCE = 0.60f
 
         // TODO(settings): move policy (cooldown, confidence, blockable surfaces) to the
