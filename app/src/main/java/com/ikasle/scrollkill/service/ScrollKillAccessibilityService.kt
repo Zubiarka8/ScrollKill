@@ -87,7 +87,11 @@ class ScrollKillAccessibilityService : AccessibilityService() {
         sessionRepository = app.sessionRepository
         settingsRepository = app.settingsRepository
         settingsRepository.settings
-            .onEach { interveneEnabled = it.interveneEnabled }
+            .onEach { settings ->
+                interveneEnabled = settings.interveneEnabled
+                blockingEngine.blockingDisabledPackages = settings.blockingDisabledPackages
+                sessionRepository.retentionMs = settings.historyRetention.durationMs
+            }
             .launchIn(serviceScope)
         Log.i(TAG, "connected; watching ${screenDetector.watchedPackages.size} packages")
     }

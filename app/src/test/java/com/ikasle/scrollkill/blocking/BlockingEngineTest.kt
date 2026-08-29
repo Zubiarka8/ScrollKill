@@ -91,4 +91,21 @@ class BlockingEngineTest {
 
         assertTrue(engine.decide(match(), 1_000L) is BlockingDecision.Intervene)
     }
+
+    @Test
+    fun `a blockable match for a package with blocking disabled returns None`() {
+        engine.blockingDisabledPackages = setOf("com.facebook.katana")
+
+        assertEquals(BlockingDecision.None, engine.decide(match(), 0L))
+    }
+
+    @Test
+    fun `clearing the disabled set restores intervention`() {
+        engine.blockingDisabledPackages = setOf("com.facebook.katana")
+        assertEquals(BlockingDecision.None, engine.decide(match(), 0L))
+
+        engine.blockingDisabledPackages = emptySet()
+
+        assertTrue(engine.decide(match(), 1_000L) is BlockingDecision.Intervene)
+    }
 }

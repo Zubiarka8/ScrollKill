@@ -29,6 +29,15 @@ class BlockingEngine(
     private val stateByPackage = HashMap<String, PackageState>()
 
     /**
+     * Packages the user has turned intervention off for. Written from the settings
+     * collector (a different thread) and read on the callback thread; an immutable-set swap
+     * plus [Volatile] is enough. A disabled package is treated exactly like a
+     * non-blockable surface.
+     */
+    @Volatile
+    var blockingDisabledPackages: Set<String> = emptySet()
+
+    /**
      * @param nowMs a monotonic clock reading (e.g. SystemClock.uptimeMillis()).
      */
     fun decide(result: DetectionResult, nowMs: Long): BlockingDecision {
@@ -37,7 +46,8 @@ class BlockingEngine(
         val pkg = result.packageName
         val blockable = result.isMatch &&
             result.surface in blockableSurfaces &&
-            result.confidence >= minConfidence
+            result.confidence >= minConfidence &&
+            pkg !in blockingDisabledPackages
 
         if (!blockable) {
             stateByPackage[pkg]?.let { stateByPackage[pkg] = it.copy(onSurface = false) }
