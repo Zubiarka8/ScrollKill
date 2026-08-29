@@ -4,18 +4,18 @@ import com.ikasle.scrollkill.detection.DetectionResult.Signal
 import com.ikasle.scrollkill.detection.DetectionResult.Surface
 
 /**
- * Detects when Instagram is showing the Reels player, an infinite vertical-video feed,
+ * Detects when YouTube is showing the Shorts player, an infinite vertical-video feed,
  * reported as [Surface.SHORT_VIDEO].
  *
- * Confidence-based and multi-signal on purpose (CLAUDE.md detection rules): the package
- * name alone never reaches [MATCH_THRESHOLD], so at least two independent UI cues must
- * agree before this reports a match. Detection and blocking stay separate: this class
- * only returns a [DetectionResult].
+ * Same confidence-based, multi-signal approach as [InstagramDetector]: the package name
+ * alone never reaches [MATCH_THRESHOLD], so at least two independent UI cues must agree
+ * before this reports a match. Detection and blocking stay separate: this class only
+ * returns a [DetectionResult].
  *
- * The token lists are matched against real Instagram builds and are expected to drift;
+ * The token lists are matched against real YouTube builds and are expected to drift;
  * they live here so this detector can be updated on its own.
  */
-class InstagramDetector : AppDetector {
+class YouTubeShortsDetector : AppDetector {
 
     override val targetPackage: String = PACKAGE
 
@@ -25,15 +25,15 @@ class InstagramDetector : AppDetector {
         var confidence = WEIGHT_PACKAGE
         val signals = mutableSetOf(Signal.PACKAGE_NAME)
 
-        if (snapshot.viewIds.containsAnyToken(REELS_VIEW_ID_TOKENS)) {
+        if (snapshot.viewIds.containsAnyToken(SHORTS_VIEW_ID_TOKENS)) {
             confidence += WEIGHT_VIEW_ID
             signals += Signal.VIEW_ID
         }
-        if (snapshot.classNames.containsAnyToken(REELS_CLASS_TOKENS)) {
+        if (snapshot.classNames.containsAnyToken(SHORTS_CLASS_TOKENS)) {
             confidence += WEIGHT_CLASS_NAME
             signals += Signal.CLASS_NAME
         }
-        if (snapshot.contentDescriptions.containsAnyToken(REELS_CONTENT_DESC_TOKENS)) {
+        if (snapshot.contentDescriptions.containsAnyToken(SHORTS_CONTENT_DESC_TOKENS)) {
             confidence += WEIGHT_CONTENT_DESC
             signals += Signal.CONTENT_DESCRIPTION
         }
@@ -53,7 +53,7 @@ class InstagramDetector : AppDetector {
     }
 
     private companion object {
-        const val PACKAGE = "com.instagram.android"
+        const val PACKAGE = "com.google.android.youtube"
 
         // Scoring: PACKAGE alone (0.10) is below MATCH_THRESHOLD, and so is any single
         // non-package signal added to it, so a match needs at least two real cues.
@@ -63,13 +63,13 @@ class InstagramDetector : AppDetector {
         const val WEIGHT_CONTENT_DESC = 0.25f
         const val MATCH_THRESHOLD = 0.60f
 
-        // TODO(instagram): verify against current Instagram build; expected to drift.
-        val REELS_VIEW_ID_TOKENS = listOf("clips_viewer", "reels_tray", "reel_feed_timeline")
+        // TODO(youtube): verify against current YouTube build; expected to drift.
+        val SHORTS_VIEW_ID_TOKENS = listOf("reel_recycler", "reel_player_page", "reel_watch_pager", "shorts_container")
 
-        // TODO(instagram): verify against current Instagram build; expected to drift.
-        val REELS_CLASS_TOKENS = listOf("ClipsViewerFragment", "ReelViewerFragment")
+        // TODO(youtube): verify against current YouTube build; expected to drift.
+        val SHORTS_CLASS_TOKENS = listOf("ReelWatchFragment", "ShortsPlayerFragment")
 
-        // TODO(instagram): verify against current Instagram build; expected to drift.
-        val REELS_CONTENT_DESC_TOKENS = listOf("Reel by", "Audio page", "Like number")
+        // TODO(youtube): verify against current YouTube build; expected to drift.
+        val SHORTS_CONTENT_DESC_TOKENS = listOf("Shorts player", "Short number", "Shorts feed")
     }
 }
