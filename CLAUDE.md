@@ -1,7 +1,7 @@
-# Skill Kill
+# Scroll Kill
 
 ## Product
-Skill Kill es una app Android centrada en reducir el consumo compulsivo de contenido infinito en redes sociales.
+Scroll Kill es una app Android centrada en reducir el consumo compulsivo de contenido infinito en redes sociales.
 
 ## Core principles
 - Privacy-first
