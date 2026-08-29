@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.ikasle.scrollkill.data.session.ScrollKillDatabase
 import com.ikasle.scrollkill.data.session.SessionEntity
 import com.ikasle.scrollkill.data.session.SessionRepository
+import com.ikasle.scrollkill.data.settings.DailyLimit
 import com.ikasle.scrollkill.data.settings.SettingsRepository
 import com.ikasle.scrollkill.data.settings.StatsWindow
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
@@ -17,6 +18,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -25,6 +27,7 @@ import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.util.TimeZone
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
@@ -59,7 +62,12 @@ class HomeViewModelTest {
         db.close()
     }
 
-    private fun viewModel() = HomeViewModel(sessionRepository, settingsRepository, clock = { now })
+    private fun viewModel() = HomeViewModel(
+        sessionRepository,
+        settingsRepository,
+        clock = { now },
+        zone = TimeZone.getTimeZone("UTC"),
+    )
 
     private suspend fun insertSession(
         pkg: String,
@@ -139,6 +147,61 @@ class HomeViewModelTest {
         vm.setInterveneEnabled(false)
 
         assertFalse(vm.uiState.first { !it.interveneEnabled }.interveneEnabled)
+    }
+
+    @Test
+    fun `today total counts only sessions since local midnight`() = runTest {
+        // 1h ago: today. 25h ago: before midnight (UTC anchor at now - 22h13m).
+        insertSession("com.instagram.android", endedAtEpochMs = now - 3_600_000, durationMs = 600_000)
+        insertSession("com.instagram.android", endedAtEpochMs = now - 25 * 3_600_000L, durationMs = 600_000)
+
+        val state = viewModel().uiState.first { !it.loading && it.todayApps.isNotEmpty() }
+
+        assertEquals("10m", state.todayTotalDuration)
+        assertEquals(1, state.todayApps.size)
+        assertEquals("10m", state.todayApps[0].usedToday)
+    }
+
+    @Test
+    fun `today limit progress uses the per-app override over the default`() = runTest {
+        settingsRepository.setDefaultDailyLimit(DailyLimit.MIN_60)
+        settingsRepository.setDailyLimitOverride("com.instagram.android", DailyLimit.MIN_30)
+        insertSession("com.instagram.android", endedAtEpochMs = now - 3_600_000, durationMs = 15 * 60_000L)
+
+        val app = viewModel().uiState
+            .first { !it.loading && it.todayApps.isNotEmpty() }
+            .todayApps[0]
+
+        assertEquals(0.5f, app.progress!!, 0.001f) // 15m / 30m, not 15m / 60m
+        assertEquals("15m / 30m", app.limitCaption)
+        assertFalse(app.overLimit)
+    }
+
+    @Test
+    fun `today row with no effective limit has null progress and a plain caption`() = runTest {
+        insertSession("com.instagram.android", endedAtEpochMs = now - 3_600_000, durationMs = 15 * 60_000L)
+
+        val app = viewModel().uiState
+            .first { !it.loading && it.todayApps.isNotEmpty() }
+            .todayApps[0]
+
+        assertNull(app.progress)
+        assertEquals("No limit set", app.limitCaption)
+        assertFalse(app.overLimit)
+    }
+
+    @Test
+    fun `today usage at or past the budget is flagged over limit`() = runTest {
+        settingsRepository.setDefaultDailyLimit(DailyLimit.MIN_10)
+        insertSession("com.instagram.android", endedAtEpochMs = now - 3_600_000, durationMs = 12 * 60_000L)
+
+        val app = viewModel().uiState
+            .first { !it.loading && it.todayApps.isNotEmpty() }
+            .todayApps[0]
+
+        assertTrue(app.overLimit)
+        assertEquals(1f, app.progress!!, 0.001f)
+        assertEquals("12m / 10m - over", app.limitCaption)
     }
 
     @Test
