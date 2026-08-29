@@ -25,3 +25,8 @@ captures/
 local.properties
 *.jks
 *.keystore
+
+# caveman skills — vendored via `npx skills`, not part of the app
+.agents/
+.claude/skills/
+skills-lock.json
