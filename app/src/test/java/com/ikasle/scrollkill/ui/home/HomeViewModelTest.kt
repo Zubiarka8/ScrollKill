@@ -6,6 +6,7 @@ import com.ikasle.scrollkill.data.session.ScrollKillDatabase
 import com.ikasle.scrollkill.data.session.SessionEntity
 import com.ikasle.scrollkill.data.session.SessionRepository
 import com.ikasle.scrollkill.data.settings.SettingsRepository
+import com.ikasle.scrollkill.data.settings.StatsWindow
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -106,11 +107,28 @@ class HomeViewModelTest {
     }
 
     @Test
-    fun `empty usage resolves to no rows and not loading`() = runTest {
+    fun `empty usage resolves to no rows, not loading, default window label`() = runTest {
         val state = viewModel().uiState.first { !it.loading }
 
         assertTrue(state.apps.isEmpty())
         assertFalse(state.loading)
+        assertEquals("Last 7 days", state.windowLabel)
+    }
+
+    @Test
+    fun `changing the stats window re-queries with the narrower cutoff`() = runTest {
+        // Two days old: inside the default 7-day window, outside a 24-hour window.
+        insertSession("com.instagram.android", endedAtEpochMs = now - 2 * dayMs, durationMs = 60_000)
+        val vm = viewModel()
+        assertEquals(
+            listOf("Instagram"),
+            vm.uiState.first { !it.loading && it.apps.isNotEmpty() }.apps.map { it.displayName },
+        )
+
+        settingsRepository.setStatsWindow(StatsWindow.LAST_24_HOURS)
+
+        val narrowed = vm.uiState.first { it.windowLabel == "Last 24 hours" }
+        assertTrue(narrowed.apps.isEmpty())
     }
 
     @Test
