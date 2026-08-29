@@ -38,3 +38,6 @@ skills-lock.json
 
 # graphify — local knowledge-graph build artifacts
 graphify-out/
+
+# Local dev tooling — not part of the app (graphify auto-refresh script + git hook)
+scripts/
