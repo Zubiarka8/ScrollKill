@@ -8,6 +8,7 @@ import android.view.accessibility.AccessibilityNodeInfo
 import com.ikasle.scrollkill.ScrollKillApp
 import com.ikasle.scrollkill.blocking.BlockingDecision
 import com.ikasle.scrollkill.blocking.BlockingEngine
+import com.ikasle.scrollkill.blocking.DailyUsageMeter
 import com.ikasle.scrollkill.data.session.SessionRepository
 import com.ikasle.scrollkill.data.settings.SettingsRepository
 import com.ikasle.scrollkill.detection.DetectionResult
@@ -90,9 +91,24 @@ class ScrollKillAccessibilityService : AccessibilityService() {
             .onEach { settings ->
                 interveneEnabled = settings.interveneEnabled
                 blockingEngine.blockingDisabledPackages = settings.blockingDisabledPackages
+                blockingEngine.dailyBudgetMsByPackage = screenDetector.watchedPackages
+                    .mapNotNull { pkg ->
+                        val limit = settings.dailyLimitOverrides[pkg] ?: settings.defaultDailyLimit
+                        limit.budgetMs?.let { pkg to it }
+                    }
+                    .toMap()
                 sessionRepository.retentionMs = settings.historyRetention.durationMs
             }
             .launchIn(serviceScope)
+
+        // Seed the daily-usage meter from persisted history so a restart does not reset budgets.
+        serviceScope.launch {
+            val since = System.currentTimeMillis() - DailyUsageMeter.WINDOW_MS
+            val used = sessionRepository.perAppUsageSince(since)
+                .associate { it.packageName to it.totalDurationMs }
+            blockingEngine.seedUsage(used, SystemClock.uptimeMillis())
+        }
+
         Log.i(TAG, "connected; watching ${screenDetector.watchedPackages.size} packages")
     }
 
