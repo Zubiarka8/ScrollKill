@@ -15,6 +15,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -30,9 +31,9 @@ import androidx.compose.ui.unit.dp
 import com.ikasle.scrollkill.ui.theme.ScrollKillTheme
 
 /**
- * Stateless home screen: accessibility-service status, the intervention toggle and a
- * 7-day per-app usage summary. All state comes from [HomeViewModel] via [state]; the two
- * lambdas are the only side effects.
+ * Stateless home screen: a "today" summary with daily-limit progress, the accessibility-service
+ * status, the intervention toggle and the per-app usage over the chosen stats window. All state
+ * comes from [HomeViewModel] via [state]; the three lambdas are the only side effects.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,10 +62,78 @@ fun HomeScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            TodayCard(state)
             ServiceStatusCard(state.serviceEnabled, onOpenAccessibilitySettings)
             InterveneToggleRow(state.interveneEnabled, onToggleIntervene)
-            UsageSection(state)
+            HistoryCard(state)
         }
+    }
+}
+
+@Composable
+private fun TodayCard(state: HomeUiState) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column {
+                Text(
+                    text = state.todayTotalDuration.ifEmpty { "0s" },
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = "Feed time today",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            if (state.todayApps.isEmpty()) {
+                Text(
+                    text = "No feed time today yet.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            } else {
+                state.todayApps.forEach { app -> TodayAppRow(app) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TodayAppRow(app: TodayAppUi) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(app.displayName, fontWeight = FontWeight.Medium)
+            Text(app.usedToday, style = MaterialTheme.typography.bodyMedium)
+        }
+        if (app.progress != null) {
+            LinearProgressIndicator(
+                progress = { app.progress },
+                modifier = Modifier.fillMaxWidth(),
+                color = if (app.overLimit) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.primary
+                },
+            )
+        }
+        Text(
+            text = app.limitCaption,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (app.overLimit) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+        )
     }
 }
 
@@ -117,31 +186,38 @@ private fun InterveneToggleRow(checked: Boolean, onCheckedChange: (Boolean) -> U
 }
 
 @Composable
-private fun UsageSection(state: HomeUiState) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(state.windowLabel, style = MaterialTheme.typography.titleMedium)
+private fun HistoryCard(state: HomeUiState) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(state.windowLabel, style = MaterialTheme.typography.titleMedium)
 
-        when {
-            state.loading -> {
-                Spacer(Modifier.height(8.dp))
-                CircularProgressIndicator()
-            }
+            when {
+                state.loading -> {
+                    Spacer(Modifier.height(8.dp))
+                    CircularProgressIndicator()
+                }
 
-            state.apps.isEmpty() -> {
-                Text(
-                    text = "No feed time recorded yet.",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
+                state.apps.isEmpty() -> {
+                    Text(
+                        text = "No feed time recorded yet.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
 
-            else -> {
-                Text(
-                    text = "${state.totalDuration} total",
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-                state.apps.forEachIndexed { index, app ->
-                    if (index > 0) HorizontalDivider()
-                    AppUsageRow(app)
+                else -> {
+                    Text(
+                        text = "${state.totalDuration} total",
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    state.apps.forEachIndexed { index, app ->
+                        if (index > 0) HorizontalDivider()
+                        AppUsageRow(app)
+                    }
                 }
             }
         }
@@ -176,6 +252,33 @@ private fun HomeScreenPreview() {
                 loading = false,
                 serviceEnabled = false,
                 interveneEnabled = true,
+                todayTotalDuration = "37m",
+                todayApps = listOf(
+                    TodayAppUi(
+                        packageName = "com.instagram.android",
+                        displayName = "Instagram",
+                        usedToday = "22m",
+                        limitCaption = "22m / 30m",
+                        progress = 0.73f,
+                        overLimit = false,
+                    ),
+                    TodayAppUi(
+                        packageName = "com.zhiliaoapp.musically",
+                        displayName = "TikTok",
+                        usedToday = "15m",
+                        limitCaption = "15m / 10m - over",
+                        progress = 1f,
+                        overLimit = true,
+                    ),
+                    TodayAppUi(
+                        packageName = "com.google.android.youtube",
+                        displayName = "YouTube",
+                        usedToday = "0s",
+                        limitCaption = "No limit set",
+                        progress = null,
+                        overLimit = false,
+                    ),
+                ),
                 windowLabel = "Last 7 days",
                 totalDuration = "1h 12m",
                 apps = listOf(
