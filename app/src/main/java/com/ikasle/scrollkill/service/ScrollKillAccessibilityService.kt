@@ -5,15 +5,26 @@ import android.os.SystemClock
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import com.ikasle.scrollkill.ScrollKillApp
 import com.ikasle.scrollkill.blocking.BlockingDecision
 import com.ikasle.scrollkill.blocking.BlockingEngine
+import com.ikasle.scrollkill.data.session.SessionRepository
+import com.ikasle.scrollkill.data.settings.SettingsRepository
 import com.ikasle.scrollkill.detection.DetectionResult
 import com.ikasle.scrollkill.detection.ScreenDetector
 import com.ikasle.scrollkill.session.Session
 import com.ikasle.scrollkill.session.SessionTracker
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 /**
  * Entry point for cross-app detection.
@@ -25,9 +36,10 @@ import kotlinx.coroutines.flow.asStateFlow
  *
  * Pipeline: this service (EventFilter) -> [SnapshotExtractor] -> [ScreenDetector]
  * -> per-app detector -> [DetectionResult] -> [BlockingEngine] -> [BlockingDecision],
- * with [SessionTracker] folding the same stream into [Session] records on the side.
- * Detection and blocking stay separate systems; this service is the only place that acts
- * on a decision (a single BACK press), gated by [interveneEnabled].
+ * with [SessionTracker] folding the same stream into [Session] records that
+ * [SessionRepository] persists off-thread. Detection and blocking stay separate systems;
+ * this service is the only place that acts on a decision (a single BACK press), gated by
+ * [interveneEnabled] (from [SettingsRepository]).
  *
  * Event types, flags and feedback are configured in
  * res/xml/accessibility_service_config.xml, not here.
@@ -35,14 +47,21 @@ import kotlinx.coroutines.flow.asStateFlow
 class ScrollKillAccessibilityService : AccessibilityService() {
 
     // TODO(detection): make the watched set user-configurable via setServiceInfo()
-    // once the settings repository exists. For now it is derived from the detectors.
+    // once a settings UI exists. For now it is derived from the detectors.
     private val screenDetector = ScreenDetector.default()
     private val snapshotExtractor = SnapshotExtractor()
     private val blockingEngine = BlockingEngine()
     private val sessionTracker = SessionTracker()
 
-    // TODO(settings): replace with a user-facing toggle once settings exist.
-    private val interveneEnabled = true
+    /** Off-callback work: persistence writes and the settings collector. */
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    private lateinit var sessionRepository: SessionRepository
+    private lateinit var settingsRepository: SettingsRepository
+
+    /** Master intervention switch, fed from [SettingsRepository]; read on the callback thread. */
+    @Volatile
+    private var interveneEnabled = true
 
     private val _detection = MutableStateFlow<DetectionResult?>(null)
 
@@ -64,6 +83,12 @@ class ScrollKillAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        val app = application as ScrollKillApp
+        sessionRepository = app.sessionRepository
+        settingsRepository = app.settingsRepository
+        settingsRepository.settings
+            .onEach { interveneEnabled = it.interveneEnabled }
+            .launchIn(serviceScope)
         Log.i(TAG, "connected; watching ${screenDetector.watchedPackages.size} packages")
     }
 
@@ -105,6 +130,7 @@ class ScrollKillAccessibilityService : AccessibilityService() {
         sessionTracker.track(result, decision, now)?.let { session ->
             _lastCompletedSession.value = session
             Log.d(TAG, "session ended $session")
+            serviceScope.launch { sessionRepository.record(session) }
         }
     }
 
@@ -116,8 +142,15 @@ class ScrollKillAccessibilityService : AccessibilityService() {
         super.onDestroy()
         lastHandledMs.clear()
         blockingEngine.reset()
-        // TODO(persistence): flush() the open session into the Repository once it exists.
+        // Persist the session in progress before we lose it. One row on teardown, so a
+        // brief blocking write here is acceptable.
+        if (::sessionRepository.isInitialized) {
+            sessionTracker.flush(SystemClock.uptimeMillis())?.let { session ->
+                runBlocking { sessionRepository.record(session) }
+            }
+        }
         sessionTracker.reset()
+        serviceScope.cancel()
         _detection.value = null
         _blockingDecision.value = BlockingDecision.None
         _lastCompletedSession.value = null
