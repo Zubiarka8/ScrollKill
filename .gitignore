@@ -30,3 +30,6 @@ local.properties
 .agents/
 .claude/skills/
 skills-lock.json
+
+# graphify — local knowledge-graph build artifacts
+graphify-out/
