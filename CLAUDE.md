@@ -176,3 +176,11 @@ Do NOT implement everything at once.
 - No sycophantic openers or closing fluff.
 - No emojis or em-dashes.
 - Do not guess APIs, versions, flags, commit SHAs, or package names. Verify by reading code or docs before asserting.
+
+## Git workflow
+- Before starting any new feature, create a branch named feature/<short-description> from main (e.g. feature/accessibility-detector).
+- Use fix/<short-description> for bug fixes, chore/<short-description> for maintenance tasks.
+- Never commit directly to main.
+- One feature per branch — do not mix unrelated changes in the same branch.
+- Before creating a branch, confirm main is up to date (git pull) to avoid branching from stale state.
+- After finishing a feature, do not merge automatically — stop and let the user review the diff first.
