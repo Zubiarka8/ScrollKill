@@ -19,6 +19,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -39,10 +40,18 @@ fun HomeScreen(
     state: HomeUiState,
     onToggleIntervene: (Boolean) -> Unit,
     onOpenAccessibilitySettings: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        topBar = { TopAppBar(title = { Text("ScrollKill") }) },
+        topBar = {
+            TopAppBar(
+                title = { Text("ScrollKill") },
+                actions = {
+                    TextButton(onClick = onOpenSettings) { Text("Settings") }
+                },
+            )
+        },
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -110,7 +119,7 @@ private fun InterveneToggleRow(checked: Boolean, onCheckedChange: (Boolean) -> U
 @Composable
 private fun UsageSection(state: HomeUiState) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Last 7 days", style = MaterialTheme.typography.titleMedium)
+        Text(state.windowLabel, style = MaterialTheme.typography.titleMedium)
 
         when {
             state.loading -> {
@@ -167,6 +176,7 @@ private fun HomeScreenPreview() {
                 loading = false,
                 serviceEnabled = false,
                 interveneEnabled = true,
+                windowLabel = "Last 7 days",
                 totalDuration = "1h 12m",
                 apps = listOf(
                     AppUsageUi("com.instagram.android", "Instagram", "48m", 6, 4),
@@ -175,6 +185,7 @@ private fun HomeScreenPreview() {
             ),
             onToggleIntervene = {},
             onOpenAccessibilitySettings = {},
+            onOpenSettings = {},
         )
     }
 }

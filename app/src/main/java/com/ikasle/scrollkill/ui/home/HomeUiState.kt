@@ -5,6 +5,8 @@ data class HomeUiState(
     val loading: Boolean = true,
     val serviceEnabled: Boolean = false,
     val interveneEnabled: Boolean = true,
+    /** Label of the active stats window, e.g. "Last 7 days". */
+    val windowLabel: String = "",
     /** Total watched time across all apps in the window, preformatted. */
     val totalDuration: String = "",
     /** Per-app usage, already sorted by time spent (most first). */

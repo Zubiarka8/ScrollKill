@@ -15,11 +15,13 @@ import kotlinx.coroutines.flow.map
  *
  * @param clock wall-clock source, injectable for tests.
  * @param retentionMs sessions older than this (by end time) are dropped on the next write.
+ *   Mutable: the accessibility service pushes the user's choice in from settings while it
+ *   runs (same [Volatile] pattern as the intervention toggle).
  */
 class SessionRepository(
     private val dao: SessionDao,
     private val clock: () -> Long = System::currentTimeMillis,
-    private val retentionMs: Long = DEFAULT_RETENTION_MS,
+    @field:Volatile var retentionMs: Long = DEFAULT_RETENTION_MS,
 ) {
 
     /**
@@ -52,7 +54,7 @@ class SessionRepository(
         dao.observePerAppUsageSince(sinceEpochMs)
 
     private companion object {
-        // TODO(settings): make retention user-configurable once a settings UI exists.
+        /** Fallback (90 days) until the service supplies the user's choice from settings. */
         const val DEFAULT_RETENTION_MS = 90L * 24 * 60 * 60 * 1000
     }
 }
