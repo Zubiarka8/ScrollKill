@@ -8,17 +8,25 @@ import com.ikasle.scrollkill.detection.DetectionResult.Surface
  * [BlockingDecision].
  *
  * Pure and framework-free (unit-testable). It never performs the action itself; the
- * AccessibilityService does. Its only state is a small per-package memory used to avoid
- * nagging: after a [BlockingDecision.Intervene] for a package it stays quiet until either
- * [cooldownMs] elapses or that package's watched surface goes away and later returns.
+ * AccessibilityService does. Its state is a small per-package memory used to avoid nagging
+ * (after a [BlockingDecision.Intervene] for a package it stays quiet until either [cooldownMs]
+ * elapses or that package's watched surface goes away and later returns) plus a
+ * [DailyUsageMeter] for the daily budget.
+ *
+ * Daily budget: while a package's metered time on a watched surface over the last 24h is
+ * under [dailyBudgetMsByPackage]'s value for it, [decide] returns [BlockingDecision.None] even
+ * on a blockable surface. A package absent from that map has no budget and is blocked on
+ * sight, the pre-daily-limits behavior.
  *
  * Not thread-safe: [decide] is meant to be called from the single accessibility callback
+ * thread. [DailyUsageMeter] is separately synchronized because [seedUsage] runs off that
  * thread.
  */
 class BlockingEngine(
     private val blockableSurfaces: Set<Surface> = DEFAULT_BLOCKABLE_SURFACES,
     private val minConfidence: Float = DEFAULT_MIN_CONFIDENCE,
     private val cooldownMs: Long = DEFAULT_COOLDOWN_MS,
+    private val usageMeter: DailyUsageMeter = DailyUsageMeter(),
 ) {
 
     private data class PackageState(
@@ -38,18 +46,37 @@ class BlockingEngine(
     var blockingDisabledPackages: Set<String> = emptySet()
 
     /**
+     * Effective daily budget (milliseconds) per package. Only packages with a real limit are
+     * present; an absent package has no budget. Written from the settings collector, read on
+     * the callback thread; immutable-map swap plus [Volatile], same as [blockingDisabledPackages].
+     */
+    @Volatile
+    var dailyBudgetMsByPackage: Map<String, Long> = emptyMap()
+
+    /**
      * @param nowMs a monotonic clock reading (e.g. SystemClock.uptimeMillis()).
      */
     fun decide(result: DetectionResult, nowMs: Long): BlockingDecision {
         markOtherPackagesLeft(result.packageName)
 
         val pkg = result.packageName
-        val blockable = result.isMatch &&
+        val onWatchedSurface = result.isMatch &&
             result.surface in blockableSurfaces &&
-            result.confidence >= minConfidence &&
-            pkg !in blockingDisabledPackages
+            result.confidence >= minConfidence
 
+        // Meter every watched-surface view - even with blocking off or no budget set - so a
+        // budget added later starts from real history.
+        if (onWatchedSurface) usageMeter.record(pkg, nowMs)
+
+        val blockable = onWatchedSurface && pkg !in blockingDisabledPackages
         if (!blockable) {
+            stateByPackage[pkg]?.let { stateByPackage[pkg] = it.copy(onSurface = false) }
+            return BlockingDecision.None
+        }
+
+        // Within the daily allowance: stay out of the way (the surface is still metered above).
+        val budgetMs = dailyBudgetMsByPackage[pkg]
+        if (budgetMs != null && usageMeter.usedMs(pkg, nowMs) < budgetMs) {
             stateByPackage[pkg]?.let { stateByPackage[pkg] = it.copy(onSurface = false) }
             return BlockingDecision.None
         }
@@ -64,8 +91,20 @@ class BlockingEngine(
         return BlockingDecision.Intervene(pkg, result.surface, result.confidence)
     }
 
+    /**
+     * Preload per-package usage from session history (per-package totals over the last
+     * [DailyUsageMeter.WINDOW_MS]) so a restarted service does not hand out a fresh budget.
+     *
+     * @param nowMs a monotonic clock reading, the same clock [decide] is called with.
+     */
+    fun seedUsage(usedByPackage: Map<String, Long>, nowMs: Long) =
+        usageMeter.seed(usedByPackage, nowMs)
+
     /** Forget all per-package memory (e.g. on service teardown). */
-    fun reset() = stateByPackage.clear()
+    fun reset() {
+        stateByPackage.clear()
+        usageMeter.reset()
+    }
 
     /**
      * Any watched-package event means every other watched package is no longer in the
