@@ -28,11 +28,10 @@ local.properties
 
 # caveman skills — vendored via `npx skills`, not part of the app
 .agents/
-.claude/skills/
 skills-lock.json
 
-# Claude Code — per-user local settings; shared config (.claude/commands/, settings.json) stays tracked
-.claude/settings.local.json
+# Claude Code — local project config, commands and skills; not shared
+.claude/
 
 # Project MCP server config — machine-specific (codebase-memory-mcp), not shared
 .mcp.json
