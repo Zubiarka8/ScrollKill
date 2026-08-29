@@ -9,14 +9,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
  * The "ViewModel" stage of the CLAUDE.md pipeline. Reads the two repositories, folds the
- * per-app usage of the last 7 days plus the settings toggle and the accessibility-service
- * status into one [HomeUiState].
+ * per-app usage of the selected window plus the settings toggle and the
+ * accessibility-service status into one [HomeUiState].
  *
  * [clock] is injectable for tests. [onResume] is called by the screen so the window
  * re-anchors and the service status is re-checked when the user comes back from settings.
@@ -31,8 +32,13 @@ class HomeViewModel(
     private val serviceEnabled = MutableStateFlow(false)
     private val windowAnchorMs = MutableStateFlow(clock())
 
-    private val usage = windowAnchorMs.flatMapLatest { anchor ->
-        sessionRepository.observePerAppUsageSince(anchor - WINDOW_MS)
+    /** Epoch cutoff for the usage query; only changes when the window or the anchor does. */
+    private val statsSince = combine(windowAnchorMs, settingsRepository.settings) { anchor, settings ->
+        anchor - settings.statsWindow.durationMs
+    }.distinctUntilChanged()
+
+    private val usage = statsSince.flatMapLatest { since ->
+        sessionRepository.observePerAppUsageSince(since)
     }
 
     val uiState: StateFlow<HomeUiState> =
@@ -41,6 +47,7 @@ class HomeViewModel(
                 loading = false,
                 serviceEnabled = enabled,
                 interveneEnabled = settings.interveneEnabled,
+                windowLabel = settings.statsWindow.label,
                 totalDuration = formatDuration(rows.sumOf { it.totalDurationMs }),
                 apps = rows.sortedByDescending { it.totalDurationMs }.map { row ->
                     AppUsageUi(
@@ -64,8 +71,6 @@ class HomeViewModel(
     }
 
     private companion object {
-        // TODO(settings): make the stats window user-selectable once a settings UI exists.
-        const val WINDOW_MS = 7L * 24 * 60 * 60 * 1000
         const val STOP_TIMEOUT_MS = 5_000L
     }
 }
