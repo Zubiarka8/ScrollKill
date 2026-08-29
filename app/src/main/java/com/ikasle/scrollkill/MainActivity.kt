@@ -4,13 +4,18 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
+import com.ikasle.scrollkill.service.accessibilitySettingsIntent
+import com.ikasle.scrollkill.service.isScrollKillAccessibilityEnabled
+import com.ikasle.scrollkill.ui.home.HomeScreen
+import com.ikasle.scrollkill.ui.home.HomeViewModel
 import com.ikasle.scrollkill.ui.theme.ScrollKillTheme
 
 class MainActivity : ComponentActivity() {
@@ -19,29 +24,30 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             ScrollKillTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
+                val context = LocalContext.current
+                val vm: HomeViewModel = viewModel(
+                    factory = viewModelFactory {
+                        initializer {
+                            val app = this[APPLICATION_KEY] as ScrollKillApp
+                            HomeViewModel(app.sessionRepository, app.settingsRepository)
+                        }
+                    },
+                )
+                val state by vm.uiState.collectAsStateWithLifecycle()
+
+                LifecycleResumeEffect(Unit) {
+                    vm.onResume(isScrollKillAccessibilityEnabled(context))
+                    onPauseOrDispose {}
                 }
+
+                HomeScreen(
+                    state = state,
+                    onToggleIntervene = vm::setInterveneEnabled,
+                    onOpenAccessibilitySettings = {
+                        context.startActivity(accessibilitySettingsIntent())
+                    },
+                )
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    ScrollKillTheme {
-        Greeting("Android")
     }
 }
