@@ -11,6 +11,7 @@ import com.ikasle.scrollkill.blocking.BlockingEngine
 import com.ikasle.scrollkill.blocking.DailyUsageMeter
 import com.ikasle.scrollkill.data.session.SessionRepository
 import com.ikasle.scrollkill.data.settings.SettingsRepository
+import com.ikasle.scrollkill.data.settings.dailyLimitFor
 import com.ikasle.scrollkill.detection.DetectionResult
 import com.ikasle.scrollkill.detection.ScreenDetector
 import com.ikasle.scrollkill.session.Session
@@ -93,8 +94,7 @@ class ScrollKillAccessibilityService : AccessibilityService() {
                 blockingEngine.blockingDisabledPackages = settings.blockingDisabledPackages
                 blockingEngine.dailyBudgetMsByPackage = screenDetector.watchedPackages
                     .mapNotNull { pkg ->
-                        val limit = settings.dailyLimitOverrides[pkg] ?: settings.defaultDailyLimit
-                        limit.budgetMs?.let { pkg to it }
+                        settings.dailyLimitFor(pkg).budgetMs?.let { pkg to it }
                     }
                     .toMap()
                 sessionRepository.retentionMs = settings.historyRetention.durationMs

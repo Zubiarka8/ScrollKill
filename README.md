@@ -19,7 +19,9 @@ happens on-device.
   `DetectionResult`; the `BlockingEngine` decides whether to act (with a per-app cooldown),
   and only the service performs the action.
 - Aggregates each visit into an in-memory session, persists it to a local Room database,
-  and surfaces per-app "time spent" and "nudges" on a home screen.
+  and surfaces it on a home screen: a "today" summary (feed time since local midnight, with
+  a per-app daily-limit progress bar) plus per-app "time spent" and "nudges" over a
+  selectable window.
 - Lets you disable the nudge per app, pick the stats window, and choose how long history
   is kept, from a settings screen.
 
@@ -48,19 +50,24 @@ The full pipeline is wired end to end. Implemented:
   `YouTubeShortsDetector` (Shorts), `TikTokDetector` (For You / Following),
   `FacebookDetector` (News Feed + Reels).
 - `BlockingEngine`: turns a `DetectionResult` into a `BlockingDecision` using a confidence
-  floor, a blockable-surface set (`FEED`, `SHORT_VIDEO`, `EXPLORE`), and a per-package
-  cooldown; honours a per-app disable from settings.
+  floor, a blockable-surface set (`FEED`, `SHORT_VIDEO`, `EXPLORE`), a per-package cooldown,
+  and a rolling per-app daily time budget (`DailyUsageMeter`, seeded from history on start);
+  honours a per-app disable from settings.
 - `SessionTracker`: folds the detection stream into in-memory `Session` records (per app,
   per surface, with an idle timeout and a minimum duration).
 - Repository: Room for session history (`SessionRepository`, epoch stamping, retention
   pruning, a per-app usage aggregate query, exported schema) and DataStore for preferences
   (`SettingsRepository`). `ScrollKillApp` is the composition root (no DI framework).
 - ViewModel + Compose UI: a home screen (accessibility-service status with a deep link, the
-  master "nudge me" toggle, a per-app usage summary over a selectable window) and a
+  master "nudge me" toggle, a "today" card with feed time since local midnight and a per-app
+  daily-limit progress bar, and a per-app usage summary over a selectable window) and a
   settings screen (per-app nudge toggles, stats window, history retention).
 
 Planned / not yet built:
 
+- A picker in Settings for the per-app daily time budgets. The `BlockingEngine` already
+  enforces them and the home screen already shows progress, but every limit currently
+  resolves to "off" until the picker lands.
 - User-configurable *watched*-app set via `setServiceInfo()`.
 - Moving the `BlockingEngine` / `SessionTracker` numeric tuning (cooldown, confidence
   floor, idle timeout, minimum session) into settings.
@@ -97,11 +104,11 @@ Single Gradle module, `:app` (namespace `com.ikasle.scrollkill`).
 app/src/main/java/com/ikasle/scrollkill/
   MainActivity.kt              hosts the Compose screens (Home / Settings)
   ScrollKillApp.kt             Application; composition root for the DB and repositories
-  blocking/                    BlockingDecision, BlockingEngine
+  blocking/                    BlockingDecision, BlockingEngine, DailyUsageMeter
   data/session/                Room: SessionEntity, SessionDao, ScrollKillDatabase,
                                SessionRecord, PerAppUsage, SessionRepository
   data/settings/               DataStore: ScrollKillSettings, SettingsRepository,
-                               StatsWindow, RetentionWindow
+                               DailyLimit, StatsWindow, RetentionWindow
   detection/                   AppDetector, DetectionResult, ScreenSnapshot,
                                SignalMatching, ScreenDetector, and the per-app detectors
                                (Instagram, YouTube Shorts, TikTok, Facebook)
@@ -109,7 +116,7 @@ app/src/main/java/com/ikasle/scrollkill/
                                AccessibilityServiceStatus
   session/                     Session, SessionTracker
   ui/home/                     HomeViewModel, HomeScreen, HomeUiState, DurationFormat,
-                               KnownApps
+                               DayBoundary, KnownApps
   ui/settings/                 SettingsViewModel, SettingsScreen, SettingsUiState
   ui/theme/                    Compose theme
 app/schemas/                   exported Room schema
