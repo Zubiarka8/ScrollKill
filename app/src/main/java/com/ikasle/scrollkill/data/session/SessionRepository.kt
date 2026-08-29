@@ -53,6 +53,10 @@ class SessionRepository(
     fun observePerAppUsageSince(sinceEpochMs: Long): Flow<List<PerAppUsage>> =
         dao.observePerAppUsageSince(sinceEpochMs)
 
+    /** One-shot per-package totals since [sinceEpochMs], for seeding the daily-usage meter. */
+    suspend fun perAppUsageSince(sinceEpochMs: Long): List<PerAppUsage> =
+        dao.perAppUsageSince(sinceEpochMs)
+
     private companion object {
         /** Fallback (90 days) until the service supplies the user's choice from settings. */
         const val DEFAULT_RETENTION_MS = 90L * 24 * 60 * 60 * 1000

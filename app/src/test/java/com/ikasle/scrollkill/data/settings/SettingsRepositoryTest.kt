@@ -3,6 +3,7 @@ package com.ikasle.scrollkill.data.settings
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -37,6 +38,8 @@ class SettingsRepositoryTest {
         assertTrue(settings.blockingDisabledPackages.isEmpty())
         assertEquals(StatsWindow.LAST_7_DAYS, settings.statsWindow)
         assertEquals(RetentionWindow.DAYS_90, settings.historyRetention)
+        assertEquals(DailyLimit.OFF, settings.defaultDailyLimit)
+        assertTrue(settings.dailyLimitOverrides.isEmpty())
     }
 
     @Test
@@ -83,6 +86,55 @@ class SettingsRepositoryTest {
         repo.setHistoryRetention(RetentionWindow.DAYS_365)
 
         assertEquals(RetentionWindow.DAYS_365, repo.settings.first().historyRetention)
+    }
+
+    @Test
+    fun `default daily limit round-trips`() = runTest {
+        val repo = newRepo("daily-default")
+
+        repo.setDefaultDailyLimit(DailyLimit.MIN_30)
+
+        assertEquals(DailyLimit.MIN_30, repo.settings.first().defaultDailyLimit)
+    }
+
+    @Test
+    fun `a per-app daily limit override round-trips`() = runTest {
+        val repo = newRepo("daily-override")
+
+        repo.setDailyLimitOverride("com.instagram.android", DailyLimit.MIN_15)
+
+        assertEquals(
+            mapOf("com.instagram.android" to DailyLimit.MIN_15),
+            repo.settings.first().dailyLimitOverrides,
+        )
+    }
+
+    @Test
+    fun `clearing a daily limit override that is absent leaves the map empty`() = runTest {
+        val repo = newRepo("daily-override-clear")
+
+        repo.setDailyLimitOverride("com.instagram.android", null)
+
+        assertTrue(repo.settings.first().dailyLimitOverrides.isEmpty())
+    }
+
+    @Test
+    fun `malformed daily limit override tokens are ignored`() = runTest {
+        val store = PreferenceDataStoreFactory.create(scope = backgroundScope) {
+            tmp.root.resolve("daily-corrupt.preferences_pb")
+        }
+        store.edit {
+            it[stringSetPreferencesKey("daily_limit_overrides")] = setOf(
+                "com.instagram.android=NOPE", // unknown enum
+                "no-equals-sign",             // no delimiter
+                "com.facebook.katana=MIN_5",  // valid
+            )
+        }
+
+        assertEquals(
+            mapOf("com.facebook.katana" to DailyLimit.MIN_5),
+            SettingsRepository(store).settings.first().dailyLimitOverrides,
+        )
     }
 
     @Test
