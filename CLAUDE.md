@@ -144,6 +144,7 @@ Before implementing or changing AccessibilityService behavior, verify current of
 Never invent Android APIs.
 
 ## Working rules for Claude Code
+- At the start of each task, scan graphify-out/ for orientation (GRAPH_REPORT.md, or `graphify query` against graph.json for "where does X live / what depends on Y / trace this flow"). It is a snapshot from the last `/graphify` run and is git-ignored: use it as a map, still read the real source before editing, and fall back to normal exploration if it is stale or absent.
 - First inspect existing code before modifying it.
 - Do not rewrite working code unnecessarily.
 - Keep changes scoped to the requested task.
@@ -153,6 +154,24 @@ Never invent Android APIs.
 - After meaningful changes, run the relevant tests/build.
 - If uncertain about an Android API, verify official documentation instead of guessing.
 - If a requirement conflicts with privacy, battery efficiency or reliability, stop and explain the tradeoff.
+
+## Workflow skills (use proactively)
+
+Route work through the matching skill from `.agents/skills/` instead of ad-hoc editing. Invoke it
+via the Skill tool at the start of the task; do not wait to be asked.
+
+- New feature / behaviour / product slice -> `lean-build` (after the `/feature` branch+plan+approve steps; `lean-build` covers the implementation).
+- Bug fix or small behaviour change -> `surgical-patch`.
+- Restructure with no behaviour change (extract strings, theme rework, rename, consolidate) -> `safe-refactor`.
+- Schema / API / data / dependency migration, anything needing rollback (e.g. Room migrations) -> `migration`.
+- Validation-only or "is this done / does it pass" -> `verify-and-stop`.
+- Ambiguous or intermittent failure, unknown cause -> `investigate-first` before editing.
+
+Rules:
+- Pick one skill per task; if the task splits (a fix plus a refactor), do them as separate scoped passes.
+- These do not replace CLAUDE.md rules or the `/feature` git workflow - they run inside them.
+- Trivial one-liners and pure questions need no skill.
+- Do not spawn subagents unless explicitly asked. The `cavecrew-*` subagents referenced by the `cavecrew` skill are not installed here.
 
 ## Current development stage
 The project is in early development.
