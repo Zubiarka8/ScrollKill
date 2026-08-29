@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">ScrollKill</string>
+    <string name="accessibility_service_label">ScrollKill detection</string>
+    <string name="accessibility_service_description">Lets ScrollKill notice when an infinite feed opens so it can help you stop scrolling. Screen contents are read on-device only, never stored and never sent anywhere.</string>
 </resources>
