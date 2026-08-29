@@ -25,6 +25,7 @@ class ScrollKillAccessibilityService : AccessibilityService() {
         "com.google.android.youtube",
         "com.zhiliaoapp.musically", // TikTok (global build)
         "com.facebook.katana",
+        "com.facebook.lite", // Facebook Lite
     )
 
     /** Last handled event time per package — backs the debounce below. */

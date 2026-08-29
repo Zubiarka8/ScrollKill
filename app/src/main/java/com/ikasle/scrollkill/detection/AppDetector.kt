@@ -14,10 +14,17 @@ interface AppDetector {
     val targetPackage: String
 
     /**
+     * Every package this detector handles. Defaults to just [targetPackage]; a detector
+     * that covers more than one build of the same app (e.g. Facebook plus Facebook Lite)
+     * overrides this and treats [targetPackage] as the primary.
+     */
+    val targetPackages: Set<String> get() = setOf(targetPackage)
+
+    /**
      * Evaluate one screen state. Must be side-effect free.
      *
-     * Return [DetectionResult.none] when the snapshot is not for [targetPackage] or
-     * no watched surface is recognised.
+     * Return [DetectionResult.none] when the snapshot is not for one of [targetPackages]
+     * or no watched surface is recognised.
      */
     fun detect(snapshot: ScreenSnapshot): DetectionResult
 }
