@@ -9,6 +9,8 @@ import com.ikasle.scrollkill.blocking.BlockingDecision
 import com.ikasle.scrollkill.blocking.BlockingEngine
 import com.ikasle.scrollkill.detection.DetectionResult
 import com.ikasle.scrollkill.detection.ScreenDetector
+import com.ikasle.scrollkill.session.Session
+import com.ikasle.scrollkill.session.SessionTracker
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,7 +24,8 @@ import kotlinx.coroutines.flow.asStateFlow
  * is bounded; no blocking I/O runs in the callback.
  *
  * Pipeline: this service (EventFilter) -> [SnapshotExtractor] -> [ScreenDetector]
- * -> per-app detector -> [DetectionResult] -> [BlockingEngine] -> [BlockingDecision].
+ * -> per-app detector -> [DetectionResult] -> [BlockingEngine] -> [BlockingDecision],
+ * with [SessionTracker] folding the same stream into [Session] records on the side.
  * Detection and blocking stay separate systems; this service is the only place that acts
  * on a decision (a single BACK press), gated by [interveneEnabled].
  *
@@ -36,6 +39,7 @@ class ScrollKillAccessibilityService : AccessibilityService() {
     private val screenDetector = ScreenDetector.default()
     private val snapshotExtractor = SnapshotExtractor()
     private val blockingEngine = BlockingEngine()
+    private val sessionTracker = SessionTracker()
 
     // TODO(settings): replace with a user-facing toggle once settings exist.
     private val interveneEnabled = true
@@ -49,6 +53,11 @@ class ScrollKillAccessibilityService : AccessibilityService() {
 
     /** Latest decision. [BlockingDecision.None] until the first blockable surface is seen. */
     val blockingDecision: StateFlow<BlockingDecision> = _blockingDecision.asStateFlow()
+
+    private val _lastCompletedSession = MutableStateFlow<Session?>(null)
+
+    /** Most recently completed engagement. Null until the first session closes. */
+    val lastCompletedSession: StateFlow<Session?> = _lastCompletedSession.asStateFlow()
 
     /** Last handled event time per package — backs the debounce below. */
     private val lastHandledMs = HashMap<String, Long>()
@@ -92,6 +101,11 @@ class ScrollKillAccessibilityService : AccessibilityService() {
             Log.d(TAG, "intervene ${decision.surface} in ${decision.packageName} conf=${decision.confidence}")
             if (interveneEnabled) performGlobalAction(GLOBAL_ACTION_BACK)
         }
+
+        sessionTracker.track(result, decision, now)?.let { session ->
+            _lastCompletedSession.value = session
+            Log.d(TAG, "session ended $session")
+        }
     }
 
     override fun onInterrupt() {
@@ -102,8 +116,11 @@ class ScrollKillAccessibilityService : AccessibilityService() {
         super.onDestroy()
         lastHandledMs.clear()
         blockingEngine.reset()
+        // TODO(persistence): flush() the open session into the Repository once it exists.
+        sessionTracker.reset()
         _detection.value = null
         _blockingDecision.value = BlockingDecision.None
+        _lastCompletedSession.value = null
     }
 
     private companion object {
