@@ -26,7 +26,17 @@ class BlockingEngineTest {
 
     @Test
     fun `match on a non-blockable surface returns None`() {
-        assertEquals(BlockingDecision.None, engine.decide(match(surface = Surface.EXPLORE), 0L))
+        val feedOnly = BlockingEngine(blockableSurfaces = setOf(Surface.FEED))
+
+        assertEquals(
+            BlockingDecision.None,
+            feedOnly.decide(match(surface = Surface.SHORT_VIDEO), 0L),
+        )
+    }
+
+    @Test
+    fun `EXPLORE is blockable by default`() {
+        assertTrue(engine.decide(match(surface = Surface.EXPLORE), 0L) is BlockingDecision.Intervene)
     }
 
     @Test

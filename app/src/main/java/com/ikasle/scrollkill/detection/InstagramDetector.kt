@@ -4,15 +4,17 @@ import com.ikasle.scrollkill.detection.DetectionResult.Signal
 import com.ikasle.scrollkill.detection.DetectionResult.Surface
 
 /**
- * Detects when Instagram is showing the Reels player, an infinite vertical-video feed,
- * reported as [Surface.SHORT_VIDEO].
+ * Detects Instagram's three infinite surfaces: the Reels player ([Surface.SHORT_VIDEO]),
+ * the home feed ([Surface.FEED]) and the Explore grid ([Surface.EXPLORE]).
  *
- * Confidence-based and multi-signal on purpose (CLAUDE.md detection rules): the package
- * name alone never reaches [MATCH_THRESHOLD], so at least two independent UI cues must
- * agree before this reports a match. Detection and blocking stay separate: this class
- * only returns a [DetectionResult].
+ * Same confidence-based, multi-signal approach as [FacebookDetector] (CLAUDE.md detection
+ * rules): the package name alone never reaches [MATCH_THRESHOLD], so at least two
+ * independent UI cues must agree. Each surface is scored separately from the same snapshot
+ * and the strongest one wins; ties resolve most-specific-first
+ * (Reels, then Explore, then the home feed). Detection and blocking stay separate: this
+ * class only returns a [DetectionResult].
  *
- * The token lists are matched against real Instagram builds and are expected to drift;
+ * The token lists are best-effort against real Instagram builds and are expected to drift;
  * they live here so this detector can be updated on its own.
  */
 class InstagramDetector : AppDetector {
@@ -22,35 +24,54 @@ class InstagramDetector : AppDetector {
     override fun detect(snapshot: ScreenSnapshot): DetectionResult {
         if (snapshot.packageName != PACKAGE) return DetectionResult.none(snapshot.packageName)
 
-        var confidence = WEIGHT_PACKAGE
-        val signals = mutableSetOf(Signal.PACKAGE_NAME)
+        // Priority order: the first surface with the top score wins a tie, so keep the
+        // more specific surfaces ahead of the broad home feed.
+        val scored = listOf(
+            Surface.SHORT_VIDEO to score(snapshot, REELS_VIEW_ID_TOKENS, REELS_CLASS_TOKENS, REELS_CONTENT_DESC_TOKENS),
+            Surface.EXPLORE to score(snapshot, EXPLORE_VIEW_ID_TOKENS, EXPLORE_CLASS_TOKENS, EXPLORE_CONTENT_DESC_TOKENS),
+            Surface.FEED to score(snapshot, FEED_VIEW_ID_TOKENS, FEED_CLASS_TOKENS, FEED_CONTENT_DESC_TOKENS),
+        )
+        val (surface, best) = scored.maxByOrNull { it.second.confidence }!!
 
-        if (snapshot.viewIds.containsAnyToken(REELS_VIEW_ID_TOKENS)) {
-            confidence += WEIGHT_VIEW_ID
-            signals += Signal.VIEW_ID
-        }
-        if (snapshot.classNames.containsAnyToken(REELS_CLASS_TOKENS)) {
-            confidence += WEIGHT_CLASS_NAME
-            signals += Signal.CLASS_NAME
-        }
-        if (snapshot.contentDescriptions.containsAnyToken(REELS_CONTENT_DESC_TOKENS)) {
-            confidence += WEIGHT_CONTENT_DESC
-            signals += Signal.CONTENT_DESCRIPTION
-        }
-
-        confidence = confidence.coerceAtMost(1f)
-
-        return if (confidence >= MATCH_THRESHOLD) {
+        return if (best.confidence >= MATCH_THRESHOLD) {
             DetectionResult(
                 packageName = PACKAGE,
-                surface = Surface.SHORT_VIDEO,
-                confidence = confidence,
-                matchedSignals = signals,
+                surface = surface,
+                confidence = best.confidence,
+                matchedSignals = best.signals,
             )
         } else {
             DetectionResult.none(snapshot.packageName)
         }
     }
+
+    /** One surface's score: package weight plus whichever of the three cue groups fired. */
+    private fun score(
+        snapshot: ScreenSnapshot,
+        viewIdTokens: List<String>,
+        classTokens: List<String>,
+        contentDescTokens: List<String>,
+    ): Score {
+        var confidence = WEIGHT_PACKAGE
+        val signals = mutableSetOf(Signal.PACKAGE_NAME)
+
+        if (snapshot.viewIds.containsAnyToken(viewIdTokens)) {
+            confidence += WEIGHT_VIEW_ID
+            signals += Signal.VIEW_ID
+        }
+        if (snapshot.classNames.containsAnyToken(classTokens)) {
+            confidence += WEIGHT_CLASS_NAME
+            signals += Signal.CLASS_NAME
+        }
+        if (snapshot.contentDescriptions.containsAnyToken(contentDescTokens)) {
+            confidence += WEIGHT_CONTENT_DESC
+            signals += Signal.CONTENT_DESCRIPTION
+        }
+
+        return Score(confidence.coerceAtMost(1f), signals)
+    }
+
+    private data class Score(val confidence: Float, val signals: Set<Signal>)
 
     private companion object {
         const val PACKAGE = "com.instagram.android"
@@ -63,13 +84,17 @@ class InstagramDetector : AppDetector {
         const val WEIGHT_CONTENT_DESC = 0.25f
         const val MATCH_THRESHOLD = 0.60f
 
-        // TODO(instagram): verify against current Instagram build; expected to drift.
-        val REELS_VIEW_ID_TOKENS = listOf("clips_viewer", "reels_tray", "reel_feed_timeline")
-
-        // TODO(instagram): verify against current Instagram build; expected to drift.
+        // TODO(instagram): verify all token lists against current Instagram build; expected to drift.
+        val REELS_VIEW_ID_TOKENS = listOf("clips_viewer", "reel_feed_timeline", "reels_viewer")
         val REELS_CLASS_TOKENS = listOf("ClipsViewerFragment", "ReelViewerFragment")
-
-        // TODO(instagram): verify against current Instagram build; expected to drift.
         val REELS_CONTENT_DESC_TOKENS = listOf("Reel by", "Audio page", "Like number")
+
+        val EXPLORE_VIEW_ID_TOKENS = listOf("explore_grid", "explore_recycler_view", "search_and_explore")
+        val EXPLORE_CLASS_TOKENS = listOf("ExploreFragment", "ExploreGridFragment", "DiscoverFragment")
+        val EXPLORE_CONTENT_DESC_TOKENS = listOf("Search and explore", "Explore", "Trending")
+
+        val FEED_VIEW_ID_TOKENS = listOf("feed_timeline_recycler_view", "main_feed_recycler_view", "feed_recycler_view")
+        val FEED_CLASS_TOKENS = listOf("MainFeedFragment", "FeedTimelineFragment")
+        val FEED_CONTENT_DESC_TOKENS = listOf("Photo by", "New posts", "Your story", "Suggested for you")
     }
 }

@@ -44,11 +44,12 @@ The full pipeline is wired end to end. Implemented:
   only component that acts (one `GLOBAL_ACTION_BACK`).
 - Detection: `AppDetector`, `DetectionResult`, `ScreenSnapshot`, `SnapshotExtractor`,
   `ScreenDetector`, and the shared `SignalMatching` helper. Four pure, unit-tested
-  detectors: `InstagramDetector` (Reels), `YouTubeShortsDetector` (Shorts),
-  `TikTokDetector` (For You / Following), `FacebookDetector` (News Feed + Reels).
+  detectors: `InstagramDetector` (Reels + home feed + Explore),
+  `YouTubeShortsDetector` (Shorts), `TikTokDetector` (For You / Following),
+  `FacebookDetector` (News Feed + Reels).
 - `BlockingEngine`: turns a `DetectionResult` into a `BlockingDecision` using a confidence
-  floor, a blockable-surface set, and a per-package cooldown; honours a per-app disable
-  from settings.
+  floor, a blockable-surface set (`FEED`, `SHORT_VIDEO`, `EXPLORE`), and a per-package
+  cooldown; honours a per-app disable from settings.
 - `SessionTracker`: folds the detection stream into in-memory `Session` records (per app,
   per surface, with an idle timeout and a minimum duration).
 - Repository: Room for session history (`SessionRepository`, epoch stamping, retention
