@@ -5,6 +5,8 @@ import android.os.SystemClock
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import com.ikasle.scrollkill.blocking.BlockingDecision
+import com.ikasle.scrollkill.blocking.BlockingEngine
 import com.ikasle.scrollkill.detection.DetectionResult
 import com.ikasle.scrollkill.detection.ScreenDetector
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,8 +22,9 @@ import kotlinx.coroutines.flow.asStateFlow
  * is bounded; no blocking I/O runs in the callback.
  *
  * Pipeline: this service (EventFilter) -> [SnapshotExtractor] -> [ScreenDetector]
- * -> per-app detector -> [DetectionResult], published on [detection]. Blocking is a
- * separate concern and is not wired here.
+ * -> per-app detector -> [DetectionResult] -> [BlockingEngine] -> [BlockingDecision].
+ * Detection and blocking stay separate systems; this service is the only place that acts
+ * on a decision (a single BACK press), gated by [interveneEnabled].
  *
  * Event types, flags and feedback are configured in
  * res/xml/accessibility_service_config.xml, not here.
@@ -32,11 +35,20 @@ class ScrollKillAccessibilityService : AccessibilityService() {
     // once the settings repository exists. For now it is derived from the detectors.
     private val screenDetector = ScreenDetector.default()
     private val snapshotExtractor = SnapshotExtractor()
+    private val blockingEngine = BlockingEngine()
+
+    // TODO(settings): replace with a user-facing toggle once settings exist.
+    private val interveneEnabled = true
 
     private val _detection = MutableStateFlow<DetectionResult?>(null)
 
     /** Latest detection outcome. Null until the first watched surface is evaluated. */
     val detection: StateFlow<DetectionResult?> = _detection.asStateFlow()
+
+    private val _blockingDecision = MutableStateFlow<BlockingDecision>(BlockingDecision.None)
+
+    /** Latest decision. [BlockingDecision.None] until the first blockable surface is seen. */
+    val blockingDecision: StateFlow<BlockingDecision> = _blockingDecision.asStateFlow()
 
     /** Last handled event time per package — backs the debounce below. */
     private val lastHandledMs = HashMap<String, Long>()
@@ -73,6 +85,13 @@ class ScrollKillAccessibilityService : AccessibilityService() {
         if (result.isMatch) {
             Log.d(TAG, "detected ${result.surface} in $pkg conf=${result.confidence}")
         }
+
+        val decision = blockingEngine.decide(result, now)
+        _blockingDecision.value = decision
+        if (decision is BlockingDecision.Intervene) {
+            Log.d(TAG, "intervene ${decision.surface} in ${decision.packageName} conf=${decision.confidence}")
+            if (interveneEnabled) performGlobalAction(GLOBAL_ACTION_BACK)
+        }
     }
 
     override fun onInterrupt() {
@@ -82,7 +101,9 @@ class ScrollKillAccessibilityService : AccessibilityService() {
     override fun onDestroy() {
         super.onDestroy()
         lastHandledMs.clear()
+        blockingEngine.reset()
         _detection.value = null
+        _blockingDecision.value = BlockingDecision.None
     }
 
     private companion object {
