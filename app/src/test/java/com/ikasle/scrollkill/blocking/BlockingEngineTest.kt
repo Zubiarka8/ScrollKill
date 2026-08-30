@@ -103,6 +103,22 @@ class BlockingEngineTest {
     }
 
     @Test
+    fun `raising the confidence floor at runtime suppresses a now-too-weak match`() {
+        engine.minConfidence = 0.95f
+
+        assertEquals(BlockingDecision.None, engine.decide(match(confidence = 0.9f), 0L))
+    }
+
+    @Test
+    fun `changing the cooldown at runtime changes when intervention re-arms`() {
+        engine.cooldownMs = 10_000L
+        assertTrue(engine.decide(match(), 0L) is BlockingDecision.Intervene)
+
+        assertEquals(BlockingDecision.None, engine.decide(match(), 9_999L))
+        assertTrue(engine.decide(match(), 10_000L) is BlockingDecision.Intervene)
+    }
+
+    @Test
     fun `a blockable match for a package with blocking disabled returns None`() {
         engine.blockingDisabledPackages = setOf("com.facebook.katana")
 

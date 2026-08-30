@@ -152,6 +152,38 @@ class SessionTrackerTest {
     }
 
     @Test
+    fun `lowering the confidence floor at runtime lets a weaker match open a session`() {
+        tracker.minConfidence = 0.4f
+
+        assertNull(track(0L, on(Surface.FEED, confidence = 0.5f)))     // opens, emits nothing yet
+        assertNull(track(2_000L, on(Surface.FEED, confidence = 0.5f))) // extends past the min duration
+        val session = track(3_000L, gone())!!
+
+        assertEquals(2, session.detectionCount) // both sub-default matches were accepted
+    }
+
+    @Test
+    fun `shortening the idle timeout at runtime closes a session that would have extended`() {
+        tracker.idleTimeoutMs = 5_000L
+        track(0L, on(Surface.FEED))
+        track(2_000L, on(Surface.FEED))
+
+        val stale = track(8_000L, on(Surface.FEED))!!
+
+        assertEquals(0L, stale.startedAtMs)
+        assertEquals(2_000L, stale.endedAtMs)
+    }
+
+    @Test
+    fun `raising the minimum duration at runtime discards a session that would have emitted`() {
+        tracker.minSessionDurationMs = 5_000L
+        track(0L, on(Surface.FEED))
+        track(2_000L, on(Surface.FEED))
+
+        assertNull(track(2_500L, gone()))
+    }
+
+    @Test
     fun `flush returns the open session then nothing`() {
         track(0L, on(Surface.FEED))
         track(2_000L, on(Surface.FEED))

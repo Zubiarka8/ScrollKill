@@ -24,10 +24,23 @@ import com.ikasle.scrollkill.detection.DetectionResult.Surface
  */
 class BlockingEngine(
     private val blockableSurfaces: Set<Surface> = DEFAULT_BLOCKABLE_SURFACES,
-    private val minConfidence: Float = DEFAULT_MIN_CONFIDENCE,
-    private val cooldownMs: Long = DEFAULT_COOLDOWN_MS,
+    minConfidence: Float = DEFAULT_MIN_CONFIDENCE,
+    cooldownMs: Long = DEFAULT_COOLDOWN_MS,
     private val usageMeter: DailyUsageMeter = DailyUsageMeter(),
 ) {
+
+    /**
+     * Confidence floor and anti-nag cooldown, seeded from the constructor defaults and then
+     * kept in sync with the settings repository by the AccessibilityService collector (a
+     * different thread). Plain-value swaps behind [Volatile], exactly like
+     * [blockingDisabledPackages] / [dailyBudgetMsByPackage]; a read on the callback thread
+     * that is one settings emission stale is harmless.
+     */
+    @Volatile
+    var minConfidence: Float = minConfidence
+
+    @Volatile
+    var cooldownMs: Long = cooldownMs
 
     private data class PackageState(
         val lastInterveneMs: Long,
@@ -118,11 +131,11 @@ class BlockingEngine(
     }
 
     private companion object {
+        // Confidence floor and cooldown are settings-driven (see [minConfidence] / [cooldownMs]
+        // and data.settings.DetectionPolicy); these constants are the shipped defaults.
+        // TODO(settings): blockableSurfaces is still fixed - needs a picker UI before it moves.
         val DEFAULT_BLOCKABLE_SURFACES = setOf(Surface.FEED, Surface.SHORT_VIDEO, Surface.EXPLORE)
         const val DEFAULT_MIN_CONFIDENCE = 0.60f
-
-        // TODO(settings): move policy (cooldown, confidence, blockable surfaces) to the
-        // settings repository once it exists.
         const val DEFAULT_COOLDOWN_MS = 45_000L
     }
 }

@@ -41,7 +41,60 @@ class SettingsRepositoryTest {
         assertEquals(RetentionWindow.DAYS_90, settings.historyRetention)
         assertEquals(DailyLimit.OFF, settings.defaultDailyLimit)
         assertTrue(settings.dailyLimitOverrides.isEmpty())
+        assertEquals(ConfidenceFloor.BALANCED, settings.detectionConfidenceFloor)
+        assertEquals(BlockingCooldown.SEC_45, settings.blockingCooldown)
+        assertEquals(IdleTimeout.SEC_15, settings.sessionIdleTimeout)
+        assertEquals(MinSessionDuration.SEC_1, settings.minSessionDuration)
         assertFalse(settings.onboardingComplete)
+    }
+
+    @Test
+    fun `detection confidence floor round-trips`() = runTest {
+        val repo = newRepo("confidence-floor")
+
+        repo.setDetectionConfidenceFloor(ConfidenceFloor.STRICT)
+
+        assertEquals(ConfidenceFloor.STRICT, repo.settings.first().detectionConfidenceFloor)
+    }
+
+    @Test
+    fun `blocking cooldown round-trips`() = runTest {
+        val repo = newRepo("cooldown")
+
+        repo.setBlockingCooldown(BlockingCooldown.SEC_120)
+
+        assertEquals(BlockingCooldown.SEC_120, repo.settings.first().blockingCooldown)
+    }
+
+    @Test
+    fun `session idle timeout round-trips`() = runTest {
+        val repo = newRepo("idle-timeout")
+
+        repo.setSessionIdleTimeout(IdleTimeout.SEC_60)
+
+        assertEquals(IdleTimeout.SEC_60, repo.settings.first().sessionIdleTimeout)
+    }
+
+    @Test
+    fun `minimum session duration round-trips`() = runTest {
+        val repo = newRepo("min-session")
+
+        repo.setMinSessionDuration(MinSessionDuration.SEC_10)
+
+        assertEquals(MinSessionDuration.SEC_10, repo.settings.first().minSessionDuration)
+    }
+
+    @Test
+    fun `a corrupt stored policy enum falls back to the default`() = runTest {
+        val store = PreferenceDataStoreFactory.create(scope = backgroundScope) {
+            tmp.root.resolve("corrupt-policy.preferences_pb")
+        }
+        store.edit { it[stringPreferencesKey("blocking_cooldown")] = "SEC_999" }
+
+        assertEquals(
+            BlockingCooldown.SEC_45,
+            SettingsRepository(store).settings.first().blockingCooldown,
+        )
     }
 
     @Test
