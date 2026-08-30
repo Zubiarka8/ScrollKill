@@ -20,10 +20,26 @@ import com.ikasle.scrollkill.detection.DetectionResult.Surface
  */
 class SessionTracker(
     private val trackedSurfaces: Set<Surface> = DEFAULT_TRACKED_SURFACES,
-    private val minConfidence: Float = DEFAULT_MIN_CONFIDENCE,
-    private val idleTimeoutMs: Long = DEFAULT_IDLE_TIMEOUT_MS,
-    private val minSessionDurationMs: Long = DEFAULT_MIN_SESSION_DURATION_MS,
+    minConfidence: Float = DEFAULT_MIN_CONFIDENCE,
+    idleTimeoutMs: Long = DEFAULT_IDLE_TIMEOUT_MS,
+    minSessionDurationMs: Long = DEFAULT_MIN_SESSION_DURATION_MS,
 ) {
+
+    /**
+     * Confidence floor, idle timeout and minimum session length, seeded from the constructor
+     * defaults and then kept in sync with the settings repository by the AccessibilityService
+     * collector (a different thread). Plain-value swaps behind [Volatile], matching
+     * BlockingEngine's settings-fed fields; a [track] read that is one settings emission stale
+     * is harmless.
+     */
+    @Volatile
+    var minConfidence: Float = minConfidence
+
+    @Volatile
+    var idleTimeoutMs: Long = idleTimeoutMs
+
+    @Volatile
+    var minSessionDurationMs: Long = minSessionDurationMs
 
     private class Open(
         val packageName: String,
@@ -113,10 +129,11 @@ class SessionTracker(
     )
 
     private companion object {
+        // Confidence floor, idle timeout and minimum duration are settings-driven (see the
+        // vars above and data.settings.DetectionPolicy); these constants are the shipped
+        // defaults.
+        // TODO(settings): trackedSurfaces is still fixed - needs a picker UI before it moves.
         val DEFAULT_TRACKED_SURFACES = setOf(Surface.FEED, Surface.SHORT_VIDEO, Surface.EXPLORE)
-
-        // TODO(settings): move policy (tracked surfaces, confidence floor, idle timeout,
-        // minimum duration) to the settings repository once it exists.
         const val DEFAULT_MIN_CONFIDENCE = 0.60f
         const val DEFAULT_IDLE_TIMEOUT_MS = 15_000L
         const val DEFAULT_MIN_SESSION_DURATION_MS = 1_000L

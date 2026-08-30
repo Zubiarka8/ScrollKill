@@ -40,6 +40,18 @@ class SettingsRepository(
                 dailyLimitOverrides = prefs[DAILY_LIMIT_OVERRIDES]
                     ?.let(::parseDailyLimitOverrides)
                     ?: defaults.dailyLimitOverrides,
+                detectionConfidenceFloor = prefs[DETECTION_CONFIDENCE_FLOOR]
+                    ?.let { name -> runCatching { ConfidenceFloor.valueOf(name) }.getOrNull() }
+                    ?: defaults.detectionConfidenceFloor,
+                blockingCooldown = prefs[BLOCKING_COOLDOWN]
+                    ?.let { name -> runCatching { BlockingCooldown.valueOf(name) }.getOrNull() }
+                    ?: defaults.blockingCooldown,
+                sessionIdleTimeout = prefs[SESSION_IDLE_TIMEOUT]
+                    ?.let { name -> runCatching { IdleTimeout.valueOf(name) }.getOrNull() }
+                    ?: defaults.sessionIdleTimeout,
+                minSessionDuration = prefs[MIN_SESSION_DURATION]
+                    ?.let { name -> runCatching { MinSessionDuration.valueOf(name) }.getOrNull() }
+                    ?: defaults.minSessionDuration,
                 statsWindow = prefs[STATS_WINDOW]
                     ?.let { name -> runCatching { StatsWindow.valueOf(name) }.getOrNull() }
                     ?: defaults.statsWindow,
@@ -94,6 +106,26 @@ class SettingsRepository(
         }
     }
 
+    /** Detector confidence floor shared by the BlockingEngine and the SessionTracker. */
+    suspend fun setDetectionConfidenceFloor(floor: ConfidenceFloor) {
+        dataStore.edit { it[DETECTION_CONFIDENCE_FLOOR] = floor.name }
+    }
+
+    /** Quiet period after a BlockingEngine intervention before it may fire again. */
+    suspend fun setBlockingCooldown(cooldown: BlockingCooldown) {
+        dataStore.edit { it[BLOCKING_COOLDOWN] = cooldown.name }
+    }
+
+    /** Idle gap that ends an open SessionTracker engagement. */
+    suspend fun setSessionIdleTimeout(timeout: IdleTimeout) {
+        dataStore.edit { it[SESSION_IDLE_TIMEOUT] = timeout.name }
+    }
+
+    /** Shortest engagement the SessionTracker will emit. */
+    suspend fun setMinSessionDuration(duration: MinSessionDuration) {
+        dataStore.edit { it[MIN_SESSION_DURATION] = duration.name }
+    }
+
     suspend fun setStatsWindow(window: StatsWindow) {
         dataStore.edit { it[STATS_WINDOW] = window.name }
     }
@@ -113,6 +145,10 @@ class SettingsRepository(
         val WATCHING_DISABLED_PACKAGES = stringSetPreferencesKey("watching_disabled_packages")
         val DEFAULT_DAILY_LIMIT = stringPreferencesKey("default_daily_limit")
         val DAILY_LIMIT_OVERRIDES = stringSetPreferencesKey("daily_limit_overrides")
+        val DETECTION_CONFIDENCE_FLOOR = stringPreferencesKey("detection_confidence_floor")
+        val BLOCKING_COOLDOWN = stringPreferencesKey("blocking_cooldown")
+        val SESSION_IDLE_TIMEOUT = stringPreferencesKey("session_idle_timeout")
+        val MIN_SESSION_DURATION = stringPreferencesKey("min_session_duration")
         val STATS_WINDOW = stringPreferencesKey("stats_window")
         val HISTORY_RETENTION = stringPreferencesKey("history_retention")
         val ONBOARDING_COMPLETE = booleanPreferencesKey("onboarding_complete")

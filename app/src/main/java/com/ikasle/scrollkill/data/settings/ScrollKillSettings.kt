@@ -19,6 +19,17 @@ data class ScrollKillSettings(
     val defaultDailyLimit: DailyLimit = DailyLimit.OFF,
     /** Per-app daily budget that wins over [defaultDailyLimit]. Absent = use the default. */
     val dailyLimitOverrides: Map<String, DailyLimit> = emptyMap(),
+    /**
+     * Minimum detector confidence for a surface to count, shared by the BlockingEngine and the
+     * SessionTracker (both shipped at 0.60). See [DetectionPolicy][ConfidenceFloor].
+     */
+    val detectionConfidenceFloor: ConfidenceFloor = ConfidenceFloor.BALANCED,
+    /** Quiet period after a BlockingEngine intervention before it may fire again (shipped 45s). */
+    val blockingCooldown: BlockingCooldown = BlockingCooldown.SEC_45,
+    /** Idle gap that ends an open SessionTracker engagement (shipped 15s). */
+    val sessionIdleTimeout: IdleTimeout = IdleTimeout.SEC_15,
+    /** Shortest engagement the SessionTracker will emit; briefer ones are dropped (shipped 1s). */
+    val minSessionDuration: MinSessionDuration = MinSessionDuration.SEC_1,
     /** Rolling window the home screen aggregates over. */
     val statsWindow: StatsWindow = StatsWindow.LAST_7_DAYS,
     /** How long session history is kept. */

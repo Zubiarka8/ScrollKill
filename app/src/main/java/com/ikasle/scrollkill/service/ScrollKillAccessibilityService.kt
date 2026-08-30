@@ -104,6 +104,14 @@ class ScrollKillAccessibilityService : AccessibilityService() {
                 interveneEnabled = settings.interveneEnabled
                 blockingEngine.blockingDisabledPackages = settings.blockingDisabledPackages
 
+                // Detection/blocking policy: one confidence floor feeds both stages.
+                val confidenceFloor = settings.detectionConfidenceFloor.value
+                blockingEngine.minConfidence = confidenceFloor
+                blockingEngine.cooldownMs = settings.blockingCooldown.durationMs
+                sessionTracker.minConfidence = confidenceFloor
+                sessionTracker.idleTimeoutMs = settings.sessionIdleTimeout.durationMs
+                sessionTracker.minSessionDurationMs = settings.minSessionDuration.durationMs
+
                 val watched = settings.watchedPackagesFrom(screenDetector.watchedPackages)
                 if (watched != activeWatchedPackages || !watchedPushedToFramework) {
                     activeWatchedPackages = watched
