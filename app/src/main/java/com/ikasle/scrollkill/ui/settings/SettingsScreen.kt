@@ -57,6 +57,8 @@ fun SettingsScreen(
     onPickAppDailyLimit: (packageName: String, limit: DailyLimit?) -> Unit,
     onPickWindow: (StatsWindow) -> Unit,
     onPickRetention: (RetentionWindow) -> Unit,
+    // HAY QUE ELIMINAR (Session 10 battery profiling): debug-only readout, null on release builds.
+    debugPanel: (@Composable () -> Unit)? = null,
 ) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -165,6 +167,9 @@ fun SettingsScreen(
                     )
                 }
             }
+
+            // HAY QUE ELIMINAR (Session 10 battery profiling)
+            debugPanel?.invoke()
         }
 
         customTarget?.let { target ->

@@ -22,6 +22,7 @@ import com.ikasle.scrollkill.ui.home.HomeScreen
 import com.ikasle.scrollkill.ui.home.HomeViewModel
 import com.ikasle.scrollkill.ui.onboarding.OnboardingScreen
 import com.ikasle.scrollkill.ui.onboarding.OnboardingViewModel
+import com.ikasle.scrollkill.ui.settings.DebugDetectionPanel // HAY QUE ELIMINAR (Session 10 battery profiling)
 import com.ikasle.scrollkill.ui.settings.SettingsScreen
 import com.ikasle.scrollkill.ui.settings.SettingsViewModel
 import com.ikasle.scrollkill.ui.theme.ScrollKillTheme
@@ -85,6 +86,12 @@ class MainActivity : ComponentActivity() {
                         onPickAppDailyLimit = settingsViewModel::setAppDailyLimit,
                         onPickWindow = settingsViewModel::setStatsWindow,
                         onPickRetention = settingsViewModel::setHistoryRetention,
+                        // HAY QUE ELIMINAR (Session 10 battery profiling)
+                        debugPanel = if (BuildConfig.DEBUG) {
+                            { DebugDetectionPanel() }
+                        } else {
+                            null
+                        },
                     )
                 } else {
                     val homeState by homeViewModel.uiState.collectAsStateWithLifecycle()

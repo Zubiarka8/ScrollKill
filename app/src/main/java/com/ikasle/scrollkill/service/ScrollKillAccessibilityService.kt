@@ -30,6 +30,57 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
+// HAY QUE ELIMINAR (Session 10 battery profiling): payload for ui.settings.DebugDetectionPanel.
+data class DebugUsage(val packageName: String, val usedMs: Long, val budgetMs: Long?)
+
+// HAY QUE ELIMINAR (Session 13 detector token verify): raw signal tokens from the last
+// snapshot, so detector token drift can be fixed off a real device. DEBUG builds only.
+data class DebugTokens(
+    val viewIds: List<String>,
+    val classNames: List<String>,
+    val contentDescriptions: List<String>,
+) {
+    companion object {
+        /**
+         * Project the snapshot down to what the detectors actually match on, trimmed for a
+         * screen readout. viewIds and classNames are pure structure (no user content).
+         * contentDescriptions can carry user data, so only short, digit-free entries are
+         * kept (structural labels like "For You" / "Following" survive; counts and captions
+         * do not) and the list is capped.
+         */
+        fun from(snapshot: com.ikasle.scrollkill.detection.ScreenSnapshot): DebugTokens =
+            DebugTokens(
+                viewIds = snapshot.viewIds.sorted().take(MAX_LINES),
+                classNames = snapshot.classNames.sorted().take(MAX_LINES),
+                contentDescriptions = snapshot.contentDescriptions
+                    .asSequence()
+                    .map { it.trim() }
+                    .filter { it.length in 1..MAX_DESC_LEN }
+                    .filterNot { it.any(Char::isDigit) }
+                    .distinct()
+                    .take(MAX_DESC_LINES)
+                    .toList(),
+            )
+
+        private const val MAX_LINES = 80
+        private const val MAX_DESC_LEN = 40
+        private const val MAX_DESC_LINES = 40
+    }
+}
+
+// HAY QUE ELIMINAR (Session 10 battery profiling): payload for ui.settings.DebugDetectionPanel.
+data class DebugSnapshot(
+    val foregroundPackage: String?,
+    val matched: Boolean,
+    val surface: String,
+    val confidence: Float,
+    val signals: String,
+    val decision: String,
+    val usage: List<DebugUsage>,
+    // HAY QUE ELIMINAR (Session 13 detector token verify)
+    val tokens: DebugTokens?,
+)
+
 /**
  * Entry point for cross-app detection.
  *
@@ -78,6 +129,10 @@ class ScrollKillAccessibilityService : AccessibilityService() {
 
     /** Whether [activeWatchedPackages] has been pushed to the framework via [setServiceInfo]. */
     private var watchedPushedToFramework = false
+
+    // HAY QUE ELIMINAR (Session 13 detector token verify): raw tokens from the last snapshot.
+    @Volatile
+    private var lastDebugTokens: DebugTokens? = null
 
     private val _detection = MutableStateFlow<DetectionResult?>(null)
 
@@ -136,6 +191,9 @@ class ScrollKillAccessibilityService : AccessibilityService() {
             blockingEngine.seedUsage(used, SystemClock.uptimeMillis())
         }
 
+        // HAY QUE ELIMINAR (Session 10 battery profiling)
+        if (BuildConfig.DEBUG) debugInstance = this
+
         debugLog("connected; ${screenDetector.watchedPackages.size} candidate packages")
     }
 
@@ -178,6 +236,8 @@ class ScrollKillAccessibilityService : AccessibilityService() {
 
         val result = screenDetector.detect(snapshot)
         _detection.value = result
+        // HAY QUE ELIMINAR (Session 13 detector token verify)
+        if (BuildConfig.DEBUG) lastDebugTokens = DebugTokens.from(snapshot)
         if (result.isMatch) {
             debugLog("detected ${result.surface} in $pkg conf=${result.confidence}")
         }
@@ -200,6 +260,32 @@ class ScrollKillAccessibilityService : AccessibilityService() {
         // Required override. No queued work to cancel yet.
     }
 
+    // HAY QUE ELIMINAR (Session 10 battery profiling): live state for ui.settings.DebugDetectionPanel.
+    internal fun debugSnapshot(): DebugSnapshot {
+        val now = SystemClock.uptimeMillis()
+        val det = detection.value
+        return DebugSnapshot(
+            foregroundPackage = det?.packageName,
+            matched = det?.isMatch == true,
+            surface = (det?.surface ?: DetectionResult.Surface.UNKNOWN).name,
+            confidence = det?.confidence ?: 0f,
+            signals = det?.matchedSignals?.joinToString(",") { it.name }.orEmpty(),
+            decision = when (val dec = blockingDecision.value) {
+                is BlockingDecision.Intervene -> "Intervene(${dec.surface.name})"
+                BlockingDecision.None -> "None"
+            },
+            usage = activeWatchedPackages.sorted().map { pkg ->
+                DebugUsage(
+                    packageName = pkg,
+                    usedMs = blockingEngine.debugUsedMs(pkg, now),
+                    budgetMs = blockingEngine.dailyBudgetMsByPackage[pkg],
+                )
+            },
+            // HAY QUE ELIMINAR (Session 13 detector token verify)
+            tokens = lastDebugTokens,
+        )
+    }
+
     /**
      * Debug-only logging. These lines name the foreground social app and its surface, plus
      * per-session engagement counts; that is user behavioural data and must never reach
@@ -212,6 +298,10 @@ class ScrollKillAccessibilityService : AccessibilityService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        // HAY QUE ELIMINAR (Session 10 battery profiling)
+        if (BuildConfig.DEBUG) debugInstance = null
+        // HAY QUE ELIMINAR (Session 13 detector token verify)
+        lastDebugTokens = null
         eventFilter.clear()
         blockingEngine.reset()
         // Persist the session in progress before we lose it. One row on teardown, so a
@@ -228,7 +318,13 @@ class ScrollKillAccessibilityService : AccessibilityService() {
         _lastCompletedSession.value = null
     }
 
-    private companion object {
-        const val TAG = "ScrollKillA11y"
+    // HAY QUE ELIMINAR (Session 10 battery profiling): restore `private companion object` when
+    // the `debugInstance` field below is removed.
+    companion object {
+        // HAY QUE ELIMINAR (Session 10 battery profiling): running instance for the debug readout.
+        @Volatile
+        internal var debugInstance: ScrollKillAccessibilityService? = null
+
+        private const val TAG = "ScrollKillA11y"
     }
 }
