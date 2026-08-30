@@ -20,6 +20,8 @@ import com.ikasle.scrollkill.service.accessibilitySettingsIntent
 import com.ikasle.scrollkill.service.isScrollKillAccessibilityEnabled
 import com.ikasle.scrollkill.ui.home.HomeScreen
 import com.ikasle.scrollkill.ui.home.HomeViewModel
+import com.ikasle.scrollkill.ui.onboarding.OnboardingScreen
+import com.ikasle.scrollkill.ui.onboarding.OnboardingViewModel
 import com.ikasle.scrollkill.ui.settings.SettingsScreen
 import com.ikasle.scrollkill.ui.settings.SettingsViewModel
 import com.ikasle.scrollkill.ui.theme.ScrollKillTheme
@@ -33,6 +35,16 @@ class MainActivity : ComponentActivity() {
                 val context = LocalContext.current
                 var showSettings by rememberSaveable { mutableStateOf(false) }
 
+                val onboardingViewModel: OnboardingViewModel = viewModel(
+                    factory = viewModelFactory {
+                        initializer {
+                            val app = this[APPLICATION_KEY] as ScrollKillApp
+                            OnboardingViewModel(app.settingsRepository)
+                        }
+                    },
+                )
+                val onboardingState by onboardingViewModel.uiState.collectAsStateWithLifecycle()
+
                 val homeViewModel: HomeViewModel = viewModel(
                     factory = viewModelFactory {
                         initializer {
@@ -42,7 +54,17 @@ class MainActivity : ComponentActivity() {
                     },
                 )
 
-                if (showSettings) {
+                if (onboardingState.loading) {
+                    // Stored flag not read yet; render nothing for the one frame it takes.
+                } else if (onboardingState.showOnboarding) {
+                    OnboardingScreen(
+                        onEnableDetection = {
+                            onboardingViewModel.completeOnboarding()
+                            context.startActivity(accessibilitySettingsIntent())
+                        },
+                        onSkip = onboardingViewModel::completeOnboarding,
+                    )
+                } else if (showSettings) {
                     BackHandler { showSettings = false }
                     val settingsViewModel: SettingsViewModel = viewModel(
                         factory = viewModelFactory {
