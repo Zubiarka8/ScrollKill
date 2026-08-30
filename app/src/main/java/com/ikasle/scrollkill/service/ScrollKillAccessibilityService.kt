@@ -12,6 +12,7 @@ import com.ikasle.scrollkill.blocking.DailyUsageMeter
 import com.ikasle.scrollkill.data.session.SessionRepository
 import com.ikasle.scrollkill.data.settings.SettingsRepository
 import com.ikasle.scrollkill.data.settings.dailyLimitFor
+import com.ikasle.scrollkill.data.settings.watchedPackagesFrom
 import com.ikasle.scrollkill.detection.DetectionResult
 import com.ikasle.scrollkill.detection.ScreenDetector
 import com.ikasle.scrollkill.session.Session
@@ -48,8 +49,7 @@ import kotlinx.coroutines.runBlocking
  */
 class ScrollKillAccessibilityService : AccessibilityService() {
 
-    // TODO(detection): make the watched set user-configurable via setServiceInfo()
-    // once a settings UI exists. For now it is derived from the detectors.
+    /** Every package the detectors can handle: the candidate set the user picks from. */
     private val screenDetector = ScreenDetector.default()
     private val snapshotExtractor = SnapshotExtractor()
     private val blockingEngine = BlockingEngine()
@@ -64,6 +64,18 @@ class ScrollKillAccessibilityService : AccessibilityService() {
     /** Master intervention switch, fed from [SettingsRepository]; read on the callback thread. */
     @Volatile
     private var interveneEnabled = true
+
+    /**
+     * Packages currently observed: [screenDetector] candidates minus the user's unwatched set,
+     * fed from [SettingsRepository]. Also pushed to the framework via [setServiceInfo] so most
+     * events are filtered before they reach [onAccessibilityEvent]; this in-process check is
+     * the backstop. Starts wide so no event is missed before the first settings emission.
+     */
+    @Volatile
+    private var activeWatchedPackages: Set<String> = screenDetector.watchedPackages
+
+    /** Whether [activeWatchedPackages] has been pushed to the framework via [setServiceInfo]. */
+    private var watchedPushedToFramework = false
 
     private val _detection = MutableStateFlow<DetectionResult?>(null)
 
@@ -92,7 +104,15 @@ class ScrollKillAccessibilityService : AccessibilityService() {
             .onEach { settings ->
                 interveneEnabled = settings.interveneEnabled
                 blockingEngine.blockingDisabledPackages = settings.blockingDisabledPackages
-                blockingEngine.dailyBudgetMsByPackage = screenDetector.watchedPackages
+
+                val watched = settings.watchedPackagesFrom(screenDetector.watchedPackages)
+                if (watched != activeWatchedPackages || !watchedPushedToFramework) {
+                    activeWatchedPackages = watched
+                    watchedPushedToFramework = true
+                    applyWatchedPackages(watched)
+                }
+
+                blockingEngine.dailyBudgetMsByPackage = watched
                     .mapNotNull { pkg ->
                         settings.dailyLimitFor(pkg).budgetMs?.let { pkg to it }
                     }
@@ -109,7 +129,21 @@ class ScrollKillAccessibilityService : AccessibilityService() {
             blockingEngine.seedUsage(used, SystemClock.uptimeMillis())
         }
 
-        Log.i(TAG, "connected; watching ${screenDetector.watchedPackages.size} packages")
+        Log.i(TAG, "connected; ${screenDetector.watchedPackages.size} candidate packages")
+    }
+
+    /**
+     * Narrow the framework-level event filter to [packages] via [setServiceInfo], starting
+     * from the current config so the XML-declared event types and flags are preserved.
+     * [AccessibilityServiceInfo.packageNames] is a dynamically configurable property; an
+     * empty array means observe nothing. Called off the callback thread from the settings
+     * collector; the framework method has no thread affinity.
+     */
+    private fun applyWatchedPackages(packages: Set<String>) {
+        val info = serviceInfo ?: return
+        info.packageNames = packages.toTypedArray()
+        setServiceInfo(info)
+        Log.d(TAG, "observing ${packages.size}/${screenDetector.watchedPackages.size} packages")
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -117,7 +151,7 @@ class ScrollKillAccessibilityService : AccessibilityService() {
 
         // Cheap early-outs first: this fires on the main thread for every event.
         val pkg = event.packageName?.toString() ?: return
-        if (pkg !in screenDetector.watchedPackages) return
+        if (pkg !in activeWatchedPackages) return
 
         val fromWindowStateChange = when (event.eventType) {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> true

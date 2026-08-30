@@ -9,6 +9,12 @@ data class ScrollKillSettings(
     val interveneEnabled: Boolean = true,
     /** Packages the user has turned intervention OFF for; sessions are still tracked. */
     val blockingDisabledPackages: Set<String> = emptySet(),
+    /**
+     * Detector-supported packages the user has turned observation OFF for. Absent = watched.
+     * The AccessibilityService ignores these entirely: no detection, session tracking or
+     * daily-limit enforcement, and they are dropped from its [packageNames] filter.
+     */
+    val watchingDisabledPackages: Set<String> = emptySet(),
     /** Daily budget applied to every watched app unless [dailyLimitOverrides] says otherwise. */
     val defaultDailyLimit: DailyLimit = DailyLimit.OFF,
     /** Per-app daily budget that wins over [defaultDailyLimit]. Absent = use the default. */
@@ -24,3 +30,11 @@ data class ScrollKillSettings(
      */
     val onboardingComplete: Boolean = false,
 )
+
+/**
+ * The packages the AccessibilityService should observe: the detector [candidates] minus the
+ * ones the user has unwatched. An empty result means observe nothing. Pure so the service
+ * wiring stays unit-testable.
+ */
+fun ScrollKillSettings.watchedPackagesFrom(candidates: Set<String>): Set<String> =
+    candidates - watchingDisabledPackages

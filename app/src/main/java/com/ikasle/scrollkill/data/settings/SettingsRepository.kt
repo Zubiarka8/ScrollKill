@@ -33,6 +33,7 @@ class SettingsRepository(
             ScrollKillSettings(
                 interveneEnabled = prefs[INTERVENE_ENABLED] ?: defaults.interveneEnabled,
                 blockingDisabledPackages = prefs[BLOCKING_DISABLED_PACKAGES] ?: defaults.blockingDisabledPackages,
+                watchingDisabledPackages = prefs[WATCHING_DISABLED_PACKAGES] ?: defaults.watchingDisabledPackages,
                 defaultDailyLimit = prefs[DEFAULT_DAILY_LIMIT]
                     ?.let { name -> runCatching { DailyLimit.valueOf(name) }.getOrNull() }
                     ?: defaults.defaultDailyLimit,
@@ -58,6 +59,18 @@ class SettingsRepository(
         dataStore.edit { prefs ->
             val current = prefs[BLOCKING_DISABLED_PACKAGES] ?: emptySet()
             prefs[BLOCKING_DISABLED_PACKAGES] =
+                if (enabled) current - packageName else current + packageName
+        }
+    }
+
+    /**
+     * Turn AccessibilityService observation on or off for a single package. When off the
+     * service does not detect, track or enforce limits for it (see [watchedPackagesFrom]).
+     */
+    suspend fun setWatchingEnabledForPackage(packageName: String, enabled: Boolean) {
+        dataStore.edit { prefs ->
+            val current = prefs[WATCHING_DISABLED_PACKAGES] ?: emptySet()
+            prefs[WATCHING_DISABLED_PACKAGES] =
                 if (enabled) current - packageName else current + packageName
         }
     }
@@ -97,6 +110,7 @@ class SettingsRepository(
     private companion object {
         val INTERVENE_ENABLED = booleanPreferencesKey("intervene_enabled")
         val BLOCKING_DISABLED_PACKAGES = stringSetPreferencesKey("blocking_disabled_packages")
+        val WATCHING_DISABLED_PACKAGES = stringSetPreferencesKey("watching_disabled_packages")
         val DEFAULT_DAILY_LIMIT = stringPreferencesKey("default_daily_limit")
         val DAILY_LIMIT_OVERRIDES = stringSetPreferencesKey("daily_limit_overrides")
         val STATS_WINDOW = stringPreferencesKey("stats_window")

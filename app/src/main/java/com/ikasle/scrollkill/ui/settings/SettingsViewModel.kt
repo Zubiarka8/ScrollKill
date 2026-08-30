@@ -39,6 +39,7 @@ class SettingsViewModel(
                         packageName = pkg,
                         displayName = KnownApps.label(pkg),
                         blockingEnabled = pkg !in settings.blockingDisabledPackages,
+                        watchedEnabled = pkg !in settings.watchingDisabledPackages,
                         dailyLimit = settings.dailyLimitFor(pkg),
                         dailyLimitIsOverride = pkg in settings.dailyLimitOverrides,
                     )
@@ -53,6 +54,11 @@ class SettingsViewModel(
 
     fun setAppBlockingEnabled(packageName: String, enabled: Boolean) {
         viewModelScope.launch { settingsRepository.setBlockingEnabledForPackage(packageName, enabled) }
+    }
+
+    /** Turn AccessibilityService observation of a single app on or off. */
+    fun setAppWatchingEnabled(packageName: String, enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setWatchingEnabledForPackage(packageName, enabled) }
     }
 
     /** Set the budget applied to every watched app without a per-app override. */

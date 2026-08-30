@@ -37,7 +37,10 @@
     <!-- Settings screen -->
     <string name="settings_title">Settings</string>
     <string name="settings_back">Back</string>
-    <string name="settings_section_apps">Nudge me off these apps</string>
+    <string name="settings_section_apps">Watched apps</string>
+    <string name="settings_app_watch">Watch</string>
+    <string name="settings_app_nudge">Nudge</string>
+    <string name="settings_app_unwatched_hint">Not watched: detection, nudges and daily limits are off for this app.</string>
     <string name="settings_section_daily_limit">Daily limit</string>
     <string name="settings_section_daily_limit_per_app">Daily limit per app</string>
     <string name="settings_daily_limit_use_default">Use default (%1$s)</string>
