@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark launch window background. Matches the Compose dark `background` color. -->
+    <color name="window_background">#191C1B</color>
+</resources>
