@@ -46,6 +46,11 @@ import com.ikasle.scrollkill.ui.theme.ScrollKillTheme
  * from [SettingsViewModel] via [state].
  */
 @OptIn(ExperimentalMaterial3Api::class)
+// HAY QUE ELIMINAR (Session 10 battery profiling): the `debugPanel` param changes this
+// function's signature, so the detekt baseline entries for its pre-existing LongParameterList
+// (9 params) and LongMethod findings no longer match. Drop this @Suppress with the rest of
+// the debug card (checklist 10.4); the baseline covers the function again once it does.
+@Suppress("LongParameterList", "LongMethod")
 @Composable
 fun SettingsScreen(
     state: SettingsUiState,
