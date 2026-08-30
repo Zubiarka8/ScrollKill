@@ -20,6 +20,11 @@ data class AppToggleUi(
     val displayName: String,
     /** false = the user turned the BACK-press nudge off for this app. */
     val blockingEnabled: Boolean,
+    /**
+     * false = the app is unwatched: the AccessibilityService ignores it entirely. The nudge
+     * and daily-limit controls have no effect while this is false.
+     */
+    val watchedEnabled: Boolean = true,
     /** The budget in effect for this app: its override if set, otherwise the global default. */
     val dailyLimit: DailyLimit = DailyLimit.OFF,
     /** true = [dailyLimit] comes from a per-app override; false = it is the inherited default. */
