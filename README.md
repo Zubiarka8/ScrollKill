@@ -22,8 +22,11 @@ happens on-device.
   and surfaces it on a home screen: a "today" summary (feed time since local midnight, with
   a per-app daily-limit progress bar) plus per-app "time spent" and "nudges" over a
   selectable window.
-- Lets you disable the nudge per app, pick the stats window, and choose how long history
-  is kept, from a settings screen.
+- Shows a one-time pre-permission rationale before the system Accessibility dialog, naming
+  what the service reads and how it is used (the disclosure Google Play requires).
+- Lets you, from a settings screen, choose which apps the service watches at all, turn the
+  nudge off per app, set a global and per-app daily time budget, pick the stats window, and
+  choose how long history is kept.
 
 ## Core principles
 
@@ -43,7 +46,9 @@ The full pipeline is wired end to end. Implemented:
 - `ScrollKillAccessibilityService`: filters `typeWindowStateChanged` /
   `typeWindowContentChanged` events, drops anything outside the watched package set,
   debounces bursts per package (250 ms), then drives the rest of the pipeline. It is the
-  only component that acts (one `GLOBAL_ACTION_BACK`).
+  only component that acts (one `GLOBAL_ACTION_BACK`). The watched set is user-configurable
+  and pushed to the framework via `setServiceInfo()`, so unwatched apps are filtered before
+  their events ever reach the callback.
 - Detection: `AppDetector`, `DetectionResult`, `ScreenSnapshot`, `SnapshotExtractor`,
   `ScreenDetector`, and the shared `SignalMatching` helper. Four pure, unit-tested
   detectors: `InstagramDetector` (Reels + home feed + Explore),
@@ -56,25 +61,28 @@ The full pipeline is wired end to end. Implemented:
 - `SessionTracker`: folds the detection stream into in-memory `Session` records (per app,
   per surface, with an idle timeout and a minimum duration).
 - Repository: Room for session history (`SessionRepository`, epoch stamping, retention
-  pruning, a per-app usage aggregate query, exported schema) and DataStore for preferences
-  (`SettingsRepository`). `ScrollKillApp` is the composition root (no DI framework).
-- ViewModel + Compose UI: a home screen (accessibility-service status with a deep link, the
-  master "nudge me" toggle, a "today" card with feed time since local midnight and a per-app
-  daily-limit progress bar, and a per-app usage summary over a selectable window) and a
-  settings screen (per-app nudge toggles, stats window, history retention).
+  pruning, a per-app usage aggregate query, exported schema, no destructive migration
+  fallback) and DataStore for preferences (`SettingsRepository`). `ScrollKillApp` is the
+  composition root (no DI framework).
+- ViewModel + Compose UI: a one-time onboarding/rationale screen; a home screen
+  (accessibility-service status with a deep link, the master "nudge me" toggle, a "today"
+  card with feed time since local midnight and a per-app daily-limit progress bar, and a
+  per-app usage summary over a selectable window); and a settings screen (watch on/off and
+  nudge on/off per app, a global plus per-app daily time budget, stats window, history
+  retention).
+- A fixed brand Material 3 theme with explicit light and dark colour schemes (no dynamic
+  colour), replacing the project template palette.
 
 Planned / not yet built:
 
-- A picker in Settings for the per-app daily time budgets. The `BlockingEngine` already
-  enforces them and the home screen already shows progress, but every limit currently
-  resolves to "off" until the picker lands.
-- User-configurable *watched*-app set via `setServiceInfo()`.
 - Moving the `BlockingEngine` / `SessionTracker` numeric tuning (cooldown, confidence
-  floor, idle timeout, minimum session) into settings.
-- Real Room migrations (currently a destructive fallback, acceptable only in early dev).
+  floor, idle timeout, minimum session) into settings (implemented, in review).
+- The first real Room `Migration`. The schema is still at version 1, so there is nothing to
+  migrate yet; the destructive fallback is already gone and `MigrationTestHelper`
+  scaffolding is in place for the first schema change.
 - Richer interventions beyond a single Back press.
 - More surfaces and detectors, plus hardening as the target apps drift.
-- UI polish.
+- A designed launcher icon (still the Android Studio template) and general UI polish.
 
 ## Architecture
 
@@ -102,11 +110,11 @@ Single Gradle module, `:app` (namespace `com.ikasle.scrollkill`).
 
 ```
 app/src/main/java/com/ikasle/scrollkill/
-  MainActivity.kt              hosts the Compose screens (Home / Settings)
+  MainActivity.kt              hosts the Compose screens (Onboarding / Home / Settings)
   ScrollKillApp.kt             Application; composition root for the DB and repositories
   blocking/                    BlockingDecision, BlockingEngine, DailyUsageMeter
   data/session/                Room: SessionEntity, SessionDao, ScrollKillDatabase,
-                               SessionRecord, PerAppUsage, SessionRepository
+                               Migrations, SessionRecord, PerAppUsage, SessionRepository
   data/settings/               DataStore: ScrollKillSettings, SettingsRepository,
                                DailyLimit, StatsWindow, RetentionWindow
   detection/                   AppDetector, DetectionResult, ScreenSnapshot,
@@ -115,14 +123,17 @@ app/src/main/java/com/ikasle/scrollkill/
   service/                     ScrollKillAccessibilityService, SnapshotExtractor,
                                AccessibilityServiceStatus
   session/                     Session, SessionTracker
+  ui/onboarding/               OnboardingViewModel, OnboardingScreen
   ui/home/                     HomeViewModel, HomeScreen, HomeUiState, DurationFormat,
                                DayBoundary, KnownApps
   ui/settings/                 SettingsViewModel, SettingsScreen, SettingsUiState
-  ui/theme/                    Compose theme
-app/schemas/                   exported Room schema
+  ui/theme/                    Compose theme (fixed brand light/dark schemes)
+app/schemas/                   exported Room schema (v1)
 app/src/main/res/xml/accessibility_service_config.xml
 app/src/test/java/.../         unit tests: detectors, BlockingEngine, SessionTracker,
-                               repositories, view models
+                               repositories, view models (Home / Settings / Onboarding)
+app/src/androidTest/java/.../  instrumented tests: Room schema / migration
+                               (ScrollKillDatabaseMigrationTest)
 ```
 
 ## Building and testing
@@ -131,9 +142,10 @@ Requirements: Android SDK with API 37, and the Gradle wrapper. The build's JVM t
 is auto-provisioned (JDK 25 via foojay); the app itself compiles to Java 11 bytecode.
 
 ```
-./gradlew assembleDebug        # build the debug APK
-./gradlew testDebugUnitTest    # run JVM unit tests (some use Robolectric)
-./gradlew installDebug         # install on a connected device/emulator
+./gradlew assembleDebug              # build the debug APK
+./gradlew testDebugUnitTest          # run JVM unit tests (some use Robolectric)
+./gradlew connectedDebugAndroidTest  # run instrumented tests (needs a device/emulator)
+./gradlew installDebug               # install on a connected device/emulator
 ```
 
 Toolchain: Kotlin 2.2.10, Android Gradle Plugin 9.3.2, Compose BOM 2026.02.01, Room 2.8.4
