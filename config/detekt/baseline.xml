@@ -1,0 +1,19 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:SnapshotExtractor.kt$SnapshotExtractor$fun extract( packageName: String, root: NodeView?, fromWindowStateChange: Boolean, ): ScreenSnapshot</ID>
+    <ID>LongMethod:SettingsScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun SettingsScreen( state: SettingsUiState, onBack: () -&gt; Unit, onToggleIntervene: (Boolean) -&gt; Unit, onToggleApp: (packageName: String, enabled: Boolean) -&gt; Unit, onToggleWatchApp: (packageName: String, enabled: Boolean) -&gt; Unit, onPickDefaultDailyLimit: (DailyLimit) -&gt; Unit, onPickAppDailyLimit: (packageName: String, limit: DailyLimit?) -&gt; Unit, onPickWindow: (StatsWindow) -&gt; Unit, onPickRetention: (RetentionWindow) -&gt; Unit, )</ID>
+    <ID>LongParameterList:SettingsScreen.kt$( state: SettingsUiState, onBack: () -&gt; Unit, onToggleIntervene: (Boolean) -&gt; Unit, onToggleApp: (packageName: String, enabled: Boolean) -&gt; Unit, onToggleWatchApp: (packageName: String, enabled: Boolean) -&gt; Unit, onPickDefaultDailyLimit: (DailyLimit) -&gt; Unit, onPickAppDailyLimit: (packageName: String, limit: DailyLimit?) -&gt; Unit, onPickWindow: (StatsWindow) -&gt; Unit, onPickRetention: (RetentionWindow) -&gt; Unit, )</ID>
+    <ID>MaxLineLength:HomeViewModelTest.kt$HomeViewModelTest$insertSession("com.google.android.youtube", endedAtEpochMs = now - 1_000, durationMs = 60_000, interventionCount = 1)</ID>
+    <ID>MaxLineLength:HomeViewModelTest.kt$HomeViewModelTest$insertSession("com.instagram.android", endedAtEpochMs = now - 1_000, durationMs = 3_600_000, interventionCount = 2)</ID>
+    <ID>MaxLineLength:InstagramDetector.kt$InstagramDetector$Surface.EXPLORE to score(snapshot, EXPLORE_VIEW_ID_TOKENS, EXPLORE_CLASS_TOKENS, EXPLORE_CONTENT_DESC_TOKENS)</ID>
+    <ID>MaxLineLength:SessionRepositoryTest.kt$SessionRepositoryTest$now = 20_000</ID>
+    <ID>MaxLineLength:SettingsViewModelTest.kt$SettingsViewModelTest$assertEquals(RetentionWindow.DAYS_30, vm.uiState.first { it.historyRetention == RetentionWindow.DAYS_30 }.historyRetention)</ID>
+    <ID>MaxLineLength:SettingsViewModelTest.kt$SettingsViewModelTest$assertEquals(StatsWindow.LAST_24_HOURS, vm.uiState.first { it.statsWindow == StatsWindow.LAST_24_HOURS }.statsWindow)</ID>
+    <ID>NestedBlockDepth:SnapshotExtractor.kt$SnapshotExtractor$fun extract( packageName: String, root: NodeView?, fromWindowStateChange: Boolean, ): ScreenSnapshot</ID>
+    <ID>NewLineAtEndOfFile:Type.kt$com.ikasle.scrollkill.ui.theme.Type.kt</ID>
+    <ID>SpreadOperator:ScrollKillApp.kt$ScrollKillApp$(*ALL_MIGRATIONS)</ID>
+    <ID>UnusedPrivateProperty:InstagramDetectorTest.kt$InstagramDetectorTest$private val feedClass = "com.instagram.mainfeed.fragment.MainFeedFragment"</ID>
+  </CurrentIssues>
+</SmellBaseline>
