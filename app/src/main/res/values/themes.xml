@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.ScrollKill" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- Compose owns all in-app colour; this style only covers the launch window and
+         system bars before setContent runs. enableEdgeToEdge() takes over the bars
+         (colour + icon contrast) once the Activity starts. Dark variant in values-night. -->
+    <style name="Theme.ScrollKill" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/window_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
 </resources>
