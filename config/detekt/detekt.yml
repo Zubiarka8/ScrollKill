@@ -1,0 +1,37 @@
+# ScrollKill detekt config. Merged on top of detekt's bundled defaults
+# (buildUponDefaultConfig = true in the root build script). Only deviations
+# from the defaults live here; everything else uses detekt's shipped rule set.
+
+build:
+  # Any finding that is not in config/detekt/baseline.xml fails the build.
+  maxIssues: 0
+
+complexity:
+  LongMethod:
+    # Compose screen composables legitimately run long; keep a ceiling but a loose one.
+    threshold: 90
+  LongParameterList:
+    functionThreshold: 8
+    constructorThreshold: 8
+    ignoreDefaultParameters: true
+  TooManyFunctions:
+    thresholdInFiles: 20
+    thresholdInClasses: 20
+    thresholdInObjects: 20
+
+style:
+  MagicNumber:
+    # Pervasive and low-signal here: dp/sp values in Compose, millisecond time math,
+    # confidence thresholds. Not worth a suppression on every call site.
+    active: false
+  ReturnCount:
+    max: 4
+  UnusedPrivateMember:
+    # @Preview composables and sample fixtures read as unused to detekt.
+    active: false
+
+naming:
+  FunctionNaming:
+    # Composable functions are PascalCase by convention.
+    functionPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ignoreAnnotated: ['Composable']

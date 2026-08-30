@@ -1,0 +1,55 @@
+name: Android CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# One in-flight run per ref; a new push cancels the previous run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # AGP auto-downloads the compileSdk platform + build-tools; the runner ships
+      # pre-accepted SDK licenses. No explicit sdkmanager step unless a platform is missing.
+
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest --no-configuration-cache --stacktrace
+
+      - name: Android lint
+        run: ./gradlew lint --no-configuration-cache --stacktrace
+
+      - name: detekt (static analysis)
+        run: ./gradlew detekt --no-configuration-cache --stacktrace
+
+      - name: Assemble debug
+        run: ./gradlew assembleDebug --no-configuration-cache --stacktrace
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-reports
+          path: |
+            app/build/reports/
+            build/reports/detekt/
+          retention-days: 7
+          if-no-files-found: ignore
