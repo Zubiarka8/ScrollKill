@@ -39,7 +39,7 @@ class SettingsRepositoryTest {
         assertTrue(settings.watchingDisabledPackages.isEmpty())
         assertEquals(StatsWindow.LAST_7_DAYS, settings.statsWindow)
         assertEquals(RetentionWindow.DAYS_90, settings.historyRetention)
-        assertEquals(DailyLimit.OFF, settings.defaultDailyLimit)
+        assertEquals(DailyLimit.Off, settings.defaultDailyLimit)
         assertTrue(settings.dailyLimitOverrides.isEmpty())
         assertEquals(ConfidenceFloor.BALANCED, settings.detectionConfidenceFloor)
         assertEquals(BlockingCooldown.SEC_45, settings.blockingCooldown)
@@ -166,19 +166,40 @@ class SettingsRepositoryTest {
     fun `default daily limit round-trips`() = runTest {
         val repo = newRepo("daily-default")
 
-        repo.setDefaultDailyLimit(DailyLimit.MIN_30)
+        repo.setDefaultDailyLimit(DailyLimit.Minutes(30))
 
-        assertEquals(DailyLimit.MIN_30, repo.settings.first().defaultDailyLimit)
+        assertEquals(DailyLimit.Minutes(30), repo.settings.first().defaultDailyLimit)
     }
 
     @Test
     fun `a per-app daily limit override round-trips`() = runTest {
         val repo = newRepo("daily-override")
 
-        repo.setDailyLimitOverride("com.instagram.android", DailyLimit.MIN_15)
+        repo.setDailyLimitOverride("com.instagram.android", DailyLimit.Minutes(15))
 
         assertEquals(
-            mapOf("com.instagram.android" to DailyLimit.MIN_15),
+            mapOf("com.instagram.android" to DailyLimit.Minutes(15)),
+            repo.settings.first().dailyLimitOverrides,
+        )
+    }
+
+    @Test
+    fun `a custom (non-preset) default daily limit round-trips`() = runTest {
+        val repo = newRepo("daily-custom-default")
+
+        repo.setDefaultDailyLimit(DailyLimit.Minutes(42))
+
+        assertEquals(DailyLimit.Minutes(42), repo.settings.first().defaultDailyLimit)
+    }
+
+    @Test
+    fun `a custom (non-preset) per-app daily limit override round-trips`() = runTest {
+        val repo = newRepo("daily-custom-override")
+
+        repo.setDailyLimitOverride("com.instagram.android", DailyLimit.Minutes(7))
+
+        assertEquals(
+            mapOf("com.instagram.android" to DailyLimit.Minutes(7)),
             repo.settings.first().dailyLimitOverrides,
         )
     }
@@ -199,14 +220,14 @@ class SettingsRepositoryTest {
         }
         store.edit {
             it[stringSetPreferencesKey("daily_limit_overrides")] = setOf(
-                "com.instagram.android=NOPE", // unknown enum
+                "com.instagram.android=NOPE", // unknown token
                 "no-equals-sign",             // no delimiter
-                "com.facebook.katana=MIN_5",  // valid
+                "com.facebook.katana=MIN_5",  // valid (legacy enum-name form)
             )
         }
 
         assertEquals(
-            mapOf("com.facebook.katana" to DailyLimit.MIN_5),
+            mapOf("com.facebook.katana" to DailyLimit.Minutes(5)),
             SettingsRepository(store).settings.first().dailyLimitOverrides,
         )
     }
