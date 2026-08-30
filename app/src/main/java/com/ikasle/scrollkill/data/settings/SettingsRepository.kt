@@ -45,6 +45,7 @@ class SettingsRepository(
                 historyRetention = prefs[HISTORY_RETENTION]
                     ?.let { name -> runCatching { RetentionWindow.valueOf(name) }.getOrNull() }
                     ?: defaults.historyRetention,
+                onboardingComplete = prefs[ONBOARDING_COMPLETE] ?: defaults.onboardingComplete,
             )
         }
 
@@ -88,6 +89,11 @@ class SettingsRepository(
         dataStore.edit { it[HISTORY_RETENTION] = retention.name }
     }
 
+    /** Record that the user has seen the first-run rationale and made an affirmative choice. */
+    suspend fun setOnboardingComplete(complete: Boolean) {
+        dataStore.edit { it[ONBOARDING_COMPLETE] = complete }
+    }
+
     private companion object {
         val INTERVENE_ENABLED = booleanPreferencesKey("intervene_enabled")
         val BLOCKING_DISABLED_PACKAGES = stringSetPreferencesKey("blocking_disabled_packages")
@@ -95,6 +101,7 @@ class SettingsRepository(
         val DAILY_LIMIT_OVERRIDES = stringSetPreferencesKey("daily_limit_overrides")
         val STATS_WINDOW = stringPreferencesKey("stats_window")
         val HISTORY_RETENTION = stringPreferencesKey("history_retention")
+        val ONBOARDING_COMPLETE = booleanPreferencesKey("onboarding_complete")
 
         /** Parse `"pkg=ENUM_NAME"` tokens; malformed tokens and unknown enum names are dropped. */
         fun parseDailyLimitOverrides(tokens: Set<String>): Map<String, DailyLimit> =

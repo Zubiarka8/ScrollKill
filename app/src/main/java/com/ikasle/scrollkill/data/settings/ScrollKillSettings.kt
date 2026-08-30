@@ -17,4 +17,10 @@ data class ScrollKillSettings(
     val statsWindow: StatsWindow = StatsWindow.LAST_7_DAYS,
     /** How long session history is kept. */
     val historyRetention: RetentionWindow = RetentionWindow.DAYS_90,
+    /**
+     * The first-run rationale screen has been shown and the user has made an affirmative
+     * choice on it. Gates the pre-permission disclosure required for the AccessibilityService
+     * (Google Play "Use of the AccessibilityService API" policy). False = show onboarding.
+     */
+    val onboardingComplete: Boolean = false,
 )

@@ -40,6 +40,7 @@ class SettingsRepositoryTest {
         assertEquals(RetentionWindow.DAYS_90, settings.historyRetention)
         assertEquals(DailyLimit.OFF, settings.defaultDailyLimit)
         assertTrue(settings.dailyLimitOverrides.isEmpty())
+        assertFalse(settings.onboardingComplete)
     }
 
     @Test
@@ -135,6 +136,15 @@ class SettingsRepositoryTest {
             mapOf("com.facebook.katana" to DailyLimit.MIN_5),
             SettingsRepository(store).settings.first().dailyLimitOverrides,
         )
+    }
+
+    @Test
+    fun `setOnboardingComplete is reflected in settings`() = runTest {
+        val repo = newRepo("onboarding")
+
+        repo.setOnboardingComplete(true)
+
+        assertTrue(repo.settings.first().onboardingComplete)
     }
 
     @Test
