@@ -25,9 +25,11 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.ikasle.scrollkill.R
 import com.ikasle.scrollkill.ui.theme.ScrollKillTheme
 
 /**
@@ -47,9 +49,11 @@ fun HomeScreen(
         modifier = Modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
-                title = { Text("ScrollKill") },
+                title = { Text(stringResource(R.string.app_name)) },
                 actions = {
-                    TextButton(onClick = onOpenSettings) { Text("Settings") }
+                    TextButton(onClick = onOpenSettings) {
+                        Text(stringResource(R.string.home_action_settings))
+                    }
                 },
             )
         },
@@ -81,12 +85,14 @@ private fun TodayCard(state: HomeUiState) {
         ) {
             Column {
                 Text(
-                    text = state.todayTotalDuration.ifEmpty { "0s" },
+                    text = state.todayTotalDuration.ifEmpty {
+                        stringResource(R.string.home_today_zero_duration)
+                    },
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    text = "Feed time today",
+                    text = stringResource(R.string.home_today_label),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -94,7 +100,7 @@ private fun TodayCard(state: HomeUiState) {
 
             if (state.todayApps.isEmpty()) {
                 Text(
-                    text = "No feed time today yet.",
+                    text = stringResource(R.string.home_today_empty),
                     style = MaterialTheme.typography.bodyMedium,
                 )
             } else {
@@ -147,21 +153,24 @@ private fun ServiceStatusCard(enabled: Boolean, onOpenSettings: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
-                text = if (enabled) "Detection active" else "Detection is off",
+                text = stringResource(
+                    if (enabled) R.string.home_service_active_title else R.string.home_service_off_title,
+                ),
                 style = MaterialTheme.typography.titleMedium,
             )
             if (enabled) {
                 Text(
-                    text = "ScrollKill can see when an infinite feed opens.",
+                    text = stringResource(R.string.home_service_active_body),
                     style = MaterialTheme.typography.bodyMedium,
                 )
             } else {
                 Text(
-                    text = "ScrollKill needs the accessibility service to notice feeds. " +
-                        "Nothing is stored or sent anywhere.",
+                    text = stringResource(R.string.home_service_off_body),
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                Button(onClick = onOpenSettings) { Text("Open Accessibility settings") }
+                Button(onClick = onOpenSettings) {
+                    Text(stringResource(R.string.home_service_open_settings))
+                }
             }
         }
     }
@@ -175,9 +184,12 @@ private fun InterveneToggleRow(checked: Boolean, onCheckedChange: (Boolean) -> U
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.padding(end = 16.dp)) {
-            Text("Nudge me off feeds", style = MaterialTheme.typography.titleMedium)
             Text(
-                text = "Press Back automatically when a feed is detected.",
+                text = stringResource(R.string.nudge_toggle_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                text = stringResource(R.string.nudge_toggle_subtitle),
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
@@ -204,14 +216,14 @@ private fun HistoryCard(state: HomeUiState) {
 
                 state.apps.isEmpty() -> {
                     Text(
-                        text = "No feed time recorded yet.",
+                        text = stringResource(R.string.home_history_empty),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
 
                 else -> {
                     Text(
-                        text = "${state.totalDuration} total",
+                        text = stringResource(R.string.home_history_total, state.totalDuration),
                         style = MaterialTheme.typography.bodyLarge,
                     )
                     state.apps.forEachIndexed { index, app ->
@@ -235,7 +247,11 @@ private fun AppUsageRow(app: AppUsageUi) {
         Column {
             Text(app.displayName, fontWeight = FontWeight.Medium)
             Text(
-                text = "${app.sessionCount} sessions - ${app.interventionCount} nudges",
+                text = stringResource(
+                    R.string.home_app_usage_stats,
+                    app.sessionCount,
+                    app.interventionCount,
+                ),
                 style = MaterialTheme.typography.bodySmall,
             )
         }
