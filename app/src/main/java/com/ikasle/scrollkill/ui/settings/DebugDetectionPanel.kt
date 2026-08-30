@@ -112,6 +112,10 @@ private fun renderSnapshot(s: DebugSnapshot?): String {
         t.classNames.forEach { b.appendLine("  $it") }
         b.appendLine("contentDescriptions (${t.contentDescriptions.size}, digit-free <=40ch):")
         t.contentDescriptions.forEach { b.appendLine("  $it") }
+        // HAY QUE ELIMINAR (Session 13 detector token verify): texts are extracted but no
+        // detector reads them; needed to tell token drift from a wrong-bucket token.
+        b.appendLine("texts (${t.texts.size}, digit-free <=40ch):")
+        t.texts.forEach { b.appendLine("  $it") }
     }
     return b.toString().trimEnd()
 }

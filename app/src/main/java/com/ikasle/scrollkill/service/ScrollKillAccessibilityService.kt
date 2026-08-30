@@ -39,28 +39,43 @@ data class DebugTokens(
     val viewIds: List<String>,
     val classNames: List<String>,
     val contentDescriptions: List<String>,
+    // HAY QUE ELIMINAR (Session 13 detector token verify): the snapshot's `texts` are
+    // extracted but no detector reads them; several tokens the detectors check against
+    // contentDescription ("For You", "Following", "Shorts", "What's on your mind") are far
+    // likelier to surface as text. Without this line a human cannot tell real token drift
+    // from a token checked against the wrong bucket.
+    val texts: List<String>,
 ) {
     companion object {
         /**
          * Project the snapshot down to what the detectors actually match on, trimmed for a
          * screen readout. viewIds and classNames are pure structure (no user content).
-         * contentDescriptions can carry user data, so only short, digit-free entries are
-         * kept (structural labels like "For You" / "Following" survive; counts and captions
-         * do not) and the list is capped.
+         * text / contentDescription can carry user data, so only short, digit-free entries
+         * are kept (structural labels like "For You" / "Following" survive; counts and
+         * captions do not) and the list is capped.
          */
         fun from(snapshot: com.ikasle.scrollkill.detection.ScreenSnapshot): DebugTokens =
             DebugTokens(
                 viewIds = snapshot.viewIds.sorted().take(MAX_LINES),
                 classNames = snapshot.classNames.sorted().take(MAX_LINES),
-                contentDescriptions = snapshot.contentDescriptions
-                    .asSequence()
-                    .map { it.trim() }
-                    .filter { it.length in 1..MAX_DESC_LEN }
-                    .filterNot { it.any(Char::isDigit) }
-                    .distinct()
-                    .take(MAX_DESC_LINES)
-                    .toList(),
+                contentDescriptions = shortLabels(snapshot.contentDescriptions),
+                // HAY QUE ELIMINAR (Session 13 detector token verify)
+                texts = shortLabels(snapshot.texts),
             )
+
+        /**
+         * Keep only short, digit-free, distinct entries: structural labels survive, counts
+         * and captions do not. Same filter for text and contentDescription so user content
+         * stays out of the readout.
+         */
+        private fun shortLabels(values: List<String>): List<String> =
+            values.asSequence()
+                .map { it.trim() }
+                .filter { it.length in 1..MAX_DESC_LEN }
+                .filterNot { it.any(Char::isDigit) }
+                .distinct()
+                .take(MAX_DESC_LINES)
+                .toList()
 
         private const val MAX_LINES = 80
         private const val MAX_DESC_LEN = 40
