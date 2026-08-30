@@ -44,6 +44,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onToggleIntervene: (Boolean) -> Unit,
     onToggleApp: (packageName: String, enabled: Boolean) -> Unit,
+    onToggleWatchApp: (packageName: String, enabled: Boolean) -> Unit,
     onPickDefaultDailyLimit: (DailyLimit) -> Unit,
     onPickAppDailyLimit: (packageName: String, limit: DailyLimit?) -> Unit,
     onPickWindow: (StatsWindow) -> Unit,
@@ -78,11 +79,10 @@ fun SettingsScreen(
             Section(stringResource(R.string.settings_section_apps)) {
                 state.apps.forEachIndexed { index, app ->
                     if (index > 0) HorizontalDivider()
-                    ToggleRow(
-                        title = app.displayName,
-                        subtitle = null,
-                        checked = app.blockingEnabled,
-                        onCheckedChange = { onToggleApp(app.packageName, it) },
+                    AppRow(
+                        app = app,
+                        onToggleWatch = { onToggleWatchApp(app.packageName, it) },
+                        onToggleNudge = { onToggleApp(app.packageName, it) },
                     )
                 }
             }
@@ -97,9 +97,10 @@ fun SettingsScreen(
                 }
             }
 
-            if (state.apps.isNotEmpty()) {
+            val limitApps = state.apps.filter { it.watchedEnabled }
+            if (limitApps.isNotEmpty()) {
                 Section(stringResource(R.string.settings_section_daily_limit_per_app)) {
-                    state.apps.forEachIndexed { index, app ->
+                    limitApps.forEachIndexed { index, app ->
                         if (index > 0) HorizontalDivider()
                         Text(
                             app.displayName,
@@ -181,6 +182,64 @@ private fun ToggleRow(
 }
 
 @Composable
+private fun AppRow(
+    app: AppToggleUi,
+    onToggleWatch: (Boolean) -> Unit,
+    onToggleNudge: (Boolean) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(app.displayName, fontWeight = FontWeight.Medium)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(24.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SwitchWithLabel(
+                label = stringResource(R.string.settings_app_watch),
+                checked = app.watchedEnabled,
+                enabled = true,
+                onCheckedChange = onToggleWatch,
+            )
+            SwitchWithLabel(
+                label = stringResource(R.string.settings_app_nudge),
+                checked = app.blockingEnabled,
+                // A nudge only makes sense while the app is watched.
+                enabled = app.watchedEnabled,
+                onCheckedChange = onToggleNudge,
+            )
+        }
+        if (!app.watchedEnabled) {
+            Text(
+                text = stringResource(R.string.settings_app_unwatched_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SwitchWithLabel(
+    label: String,
+    checked: Boolean,
+    enabled: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyMedium)
+        Switch(checked = checked, enabled = enabled, onCheckedChange = onCheckedChange)
+    }
+}
+
+@Composable
 private fun ChoiceRow(label: String, selected: Boolean, onClick: () -> Unit) {
     Row(
         modifier = Modifier
@@ -205,13 +264,14 @@ private fun SettingsScreenPreview() {
                 historyRetention = RetentionWindow.DAYS_90,
                 defaultDailyLimit = DailyLimit.MIN_30,
                 apps = listOf(
-                    AppToggleUi("com.facebook.katana", "Facebook", true),
+                    AppToggleUi("com.facebook.katana", "Facebook", blockingEnabled = true),
                     AppToggleUi(
-                        "com.instagram.android", "Instagram", false,
+                        "com.instagram.android", "Instagram", blockingEnabled = false,
                         dailyLimit = DailyLimit.MIN_10, dailyLimitIsOverride = true,
                     ),
                     AppToggleUi(
-                        "com.google.android.youtube", "YouTube", true,
+                        "com.google.android.youtube", "YouTube", blockingEnabled = true,
+                        watchedEnabled = false,
                         dailyLimit = DailyLimit.MIN_30, dailyLimitIsOverride = false,
                     ),
                 ),
@@ -219,6 +279,7 @@ private fun SettingsScreenPreview() {
             onBack = {},
             onToggleIntervene = {},
             onToggleApp = { _, _ -> },
+            onToggleWatchApp = { _, _ -> },
             onPickDefaultDailyLimit = {},
             onPickAppDailyLimit = { _, _ -> },
             onPickWindow = {},

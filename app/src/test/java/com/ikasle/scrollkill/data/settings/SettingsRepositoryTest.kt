@@ -36,6 +36,7 @@ class SettingsRepositoryTest {
 
         assertTrue(settings.interveneEnabled)
         assertTrue(settings.blockingDisabledPackages.isEmpty())
+        assertTrue(settings.watchingDisabledPackages.isEmpty())
         assertEquals(StatsWindow.LAST_7_DAYS, settings.statsWindow)
         assertEquals(RetentionWindow.DAYS_90, settings.historyRetention)
         assertEquals(DailyLimit.OFF, settings.defaultDailyLimit)
@@ -69,6 +70,25 @@ class SettingsRepositoryTest {
         repo.setBlockingEnabledForPackage("com.instagram.android", enabled = true)
 
         assertTrue(repo.settings.first().blockingDisabledPackages.isEmpty())
+    }
+
+    @Test
+    fun `disabling watching adds the app to the unwatched set`() = runTest {
+        val repo = newRepo("unwatch")
+
+        repo.setWatchingEnabledForPackage("com.instagram.android", enabled = false)
+
+        assertEquals(setOf("com.instagram.android"), repo.settings.first().watchingDisabledPackages)
+    }
+
+    @Test
+    fun `re-enabling watching removes the app from the unwatched set`() = runTest {
+        val repo = newRepo("rewatch")
+
+        // Removal branch: enabling a package not present leaves the set empty.
+        repo.setWatchingEnabledForPackage("com.instagram.android", enabled = true)
+
+        assertTrue(repo.settings.first().watchingDisabledPackages.isEmpty())
     }
 
     @Test

@@ -49,7 +49,19 @@ class SettingsViewModelTest {
 
         assertEquals(5, state.apps.size)
         assertTrue(state.apps.all { it.blockingEnabled })
+        assertTrue(state.apps.all { it.watchedEnabled })
         assertEquals(state.apps.map { it.displayName }.sorted(), state.apps.map { it.displayName })
+    }
+
+    @Test
+    fun `unwatching an app marks only that row`() = runTest {
+        val vm = newViewModel()
+
+        vm.setAppWatchingEnabled("com.instagram.android", enabled = false)
+
+        val state = vm.uiState.first { st -> st.apps.any { !it.watchedEnabled } }
+        assertFalse(state.apps.first { it.packageName == "com.instagram.android" }.watchedEnabled)
+        assertTrue(state.apps.filter { it.packageName != "com.instagram.android" }.all { it.watchedEnabled })
     }
 
     @Test
