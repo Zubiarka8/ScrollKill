@@ -10,6 +10,7 @@ import com.ikasle.scrollkill.data.settings.SettingsRepository
 import com.ikasle.scrollkill.data.settings.StatsWindow
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -29,6 +30,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.util.TimeZone
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class HomeViewModelTest {

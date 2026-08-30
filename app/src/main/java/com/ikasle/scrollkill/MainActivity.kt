@@ -58,6 +58,8 @@ class MainActivity : ComponentActivity() {
                         onBack = { showSettings = false },
                         onToggleIntervene = settingsViewModel::setInterveneEnabled,
                         onToggleApp = settingsViewModel::setAppBlockingEnabled,
+                        onPickDefaultDailyLimit = settingsViewModel::setDefaultDailyLimit,
+                        onPickAppDailyLimit = settingsViewModel::setAppDailyLimit,
                         onPickWindow = settingsViewModel::setStatsWindow,
                         onPickRetention = settingsViewModel::setHistoryRetention,
                     )

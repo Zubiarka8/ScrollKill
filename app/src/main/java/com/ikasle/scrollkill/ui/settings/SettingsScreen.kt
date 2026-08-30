@@ -24,14 +24,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.ikasle.scrollkill.data.settings.DailyLimit
 import com.ikasle.scrollkill.data.settings.RetentionWindow
 import com.ikasle.scrollkill.data.settings.StatsWindow
 import com.ikasle.scrollkill.ui.theme.ScrollKillTheme
 
 /**
  * Stateless settings screen: the master intervention toggle (mirrors Home), a per-app
- * blocking toggle for every watched app, and the stats-window and history-retention
- * choices. All state comes from [SettingsViewModel] via [state].
+ * blocking toggle for every watched app, the daily-limit pickers (global default plus
+ * per-app override), and the stats-window and history-retention choices. All state comes
+ * from [SettingsViewModel] via [state].
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,6 +42,8 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onToggleIntervene: (Boolean) -> Unit,
     onToggleApp: (packageName: String, enabled: Boolean) -> Unit,
+    onPickDefaultDailyLimit: (DailyLimit) -> Unit,
+    onPickAppDailyLimit: (packageName: String, limit: DailyLimit?) -> Unit,
     onPickWindow: (StatsWindow) -> Unit,
     onPickRetention: (RetentionWindow) -> Unit,
 ) {
@@ -76,6 +80,41 @@ fun SettingsScreen(
                         checked = app.blockingEnabled,
                         onCheckedChange = { onToggleApp(app.packageName, it) },
                     )
+                }
+            }
+
+            Section("Daily limit") {
+                DailyLimit.entries.forEach { limit ->
+                    ChoiceRow(
+                        label = limit.label,
+                        selected = limit == state.defaultDailyLimit,
+                        onClick = { onPickDefaultDailyLimit(limit) },
+                    )
+                }
+            }
+
+            if (state.apps.isNotEmpty()) {
+                Section("Daily limit per app") {
+                    state.apps.forEachIndexed { index, app ->
+                        if (index > 0) HorizontalDivider()
+                        Text(
+                            app.displayName,
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                        ChoiceRow(
+                            label = "Use default (${state.defaultDailyLimit.label})",
+                            selected = !app.dailyLimitIsOverride,
+                            onClick = { onPickAppDailyLimit(app.packageName, null) },
+                        )
+                        DailyLimit.entries.forEach { limit ->
+                            ChoiceRow(
+                                label = limit.label,
+                                selected = app.dailyLimitIsOverride && limit == app.dailyLimit,
+                                onClick = { onPickAppDailyLimit(app.packageName, limit) },
+                            )
+                        }
+                    }
                 }
             }
 
@@ -157,15 +196,24 @@ private fun SettingsScreenPreview() {
                 interveneEnabled = true,
                 statsWindow = StatsWindow.LAST_7_DAYS,
                 historyRetention = RetentionWindow.DAYS_90,
+                defaultDailyLimit = DailyLimit.MIN_30,
                 apps = listOf(
                     AppToggleUi("com.facebook.katana", "Facebook", true),
-                    AppToggleUi("com.instagram.android", "Instagram", false),
-                    AppToggleUi("com.google.android.youtube", "YouTube", true),
+                    AppToggleUi(
+                        "com.instagram.android", "Instagram", false,
+                        dailyLimit = DailyLimit.MIN_10, dailyLimitIsOverride = true,
+                    ),
+                    AppToggleUi(
+                        "com.google.android.youtube", "YouTube", true,
+                        dailyLimit = DailyLimit.MIN_30, dailyLimitIsOverride = false,
+                    ),
                 ),
             ),
             onBack = {},
             onToggleIntervene = {},
             onToggleApp = { _, _ -> },
+            onPickDefaultDailyLimit = {},
+            onPickAppDailyLimit = { _, _ -> },
             onPickWindow = {},
             onPickRetention = {},
         )
