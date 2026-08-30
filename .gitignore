@@ -42,3 +42,6 @@ graphify-out/
 
 # Local dev tooling — not part of the app (graphify auto-refresh script + git hook)
 scripts/
+
+# Play Store submission drafts — kept local, not published in the repo
+docs/play-store/
