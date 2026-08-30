@@ -21,9 +21,11 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.ikasle.scrollkill.R
 import com.ikasle.scrollkill.data.settings.DailyLimit
 import com.ikasle.scrollkill.data.settings.RetentionWindow
 import com.ikasle.scrollkill.data.settings.StatsWindow
@@ -51,8 +53,10 @@ fun SettingsScreen(
         modifier = Modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
-                title = { Text("Settings") },
-                navigationIcon = { TextButton(onClick = onBack) { Text("Back") } },
+                title = { Text(stringResource(R.string.settings_title)) },
+                navigationIcon = {
+                    TextButton(onClick = onBack) { Text(stringResource(R.string.settings_back)) }
+                },
             )
         },
     ) { innerPadding ->
@@ -65,13 +69,13 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             ToggleRow(
-                title = "Nudge me off feeds",
-                subtitle = "Press Back automatically when a feed is detected.",
+                title = stringResource(R.string.nudge_toggle_title),
+                subtitle = stringResource(R.string.nudge_toggle_subtitle),
                 checked = state.interveneEnabled,
                 onCheckedChange = onToggleIntervene,
             )
 
-            Section("Block these apps") {
+            Section(stringResource(R.string.settings_section_apps)) {
                 state.apps.forEachIndexed { index, app ->
                     if (index > 0) HorizontalDivider()
                     ToggleRow(
@@ -83,7 +87,7 @@ fun SettingsScreen(
                 }
             }
 
-            Section("Daily limit") {
+            Section(stringResource(R.string.settings_section_daily_limit)) {
                 DailyLimit.entries.forEach { limit ->
                     ChoiceRow(
                         label = limit.label,
@@ -94,7 +98,7 @@ fun SettingsScreen(
             }
 
             if (state.apps.isNotEmpty()) {
-                Section("Daily limit per app") {
+                Section(stringResource(R.string.settings_section_daily_limit_per_app)) {
                     state.apps.forEachIndexed { index, app ->
                         if (index > 0) HorizontalDivider()
                         Text(
@@ -103,7 +107,10 @@ fun SettingsScreen(
                             modifier = Modifier.padding(top = 8.dp),
                         )
                         ChoiceRow(
-                            label = "Use default (${state.defaultDailyLimit.label})",
+                            label = stringResource(
+                                R.string.settings_daily_limit_use_default,
+                                state.defaultDailyLimit.label,
+                            ),
                             selected = !app.dailyLimitIsOverride,
                             onClick = { onPickAppDailyLimit(app.packageName, null) },
                         )
@@ -118,7 +125,7 @@ fun SettingsScreen(
                 }
             }
 
-            Section("Show stats for") {
+            Section(stringResource(R.string.settings_section_stats_window)) {
                 StatsWindow.entries.forEach { window ->
                     ChoiceRow(
                         label = window.label,
@@ -128,7 +135,7 @@ fun SettingsScreen(
                 }
             }
 
-            Section("Keep history for") {
+            Section(stringResource(R.string.settings_section_retention)) {
                 RetentionWindow.entries.forEach { retention ->
                     ChoiceRow(
                         label = retention.label,
