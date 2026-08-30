@@ -40,6 +40,12 @@ android {
             isReturnDefaultValues = true
         }
     }
+    sourceSets {
+        // MigrationTestHelper reads the exported schema JSONs from the androidTest APK assets.
+        getByName("androidTest") {
+            assets.srcDirs("$projectDir/schemas")
+        }
+    }
 }
 
 // Room exports the schema so migrations can be added and tested later.
@@ -71,6 +77,7 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.room.testing)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

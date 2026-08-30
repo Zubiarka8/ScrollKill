@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.room.Room
+import com.ikasle.scrollkill.data.session.ALL_MIGRATIONS
 import com.ikasle.scrollkill.data.session.ScrollKillDatabase
 import com.ikasle.scrollkill.data.session.SessionRepository
 import com.ikasle.scrollkill.data.settings.SettingsRepository
@@ -21,9 +22,9 @@ class ScrollKillApp : Application() {
 
     private val database: ScrollKillDatabase by lazy {
         Room.databaseBuilder(this, ScrollKillDatabase::class.java, "scrollkill.db")
-            // TODO(release): replace with real migrations before shipping; this wipes
-            // stored stats on any schema change.
-            .fallbackToDestructiveMigration(dropAllTables = true)
+            // No destructive fallback: a schema bump without a matching migration in
+            // ALL_MIGRATIONS must crash, not silently wipe local session history.
+            .addMigrations(*ALL_MIGRATIONS)
             .build()
     }
 
