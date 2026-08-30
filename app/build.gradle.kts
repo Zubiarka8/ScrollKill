@@ -1,8 +1,20 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
 }
+
+// Release signing keys are read from keystore.properties at the repo root (git-ignored;
+// see keystore.properties.example). When the file is absent the release APK is left
+// unsigned - exactly as it was before this was wired - so debug builds and CI are
+// unaffected. CI / env-var signing can be added when a release workflow exists.
+val keystoreProperties = Properties().apply {
+    val file = rootProject.file("keystore.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+val hasReleaseKeystore = keystoreProperties.getProperty("storeFile") != null
 
 android {
     namespace = "com.ikasle.scrollkill"
@@ -14,17 +26,43 @@ android {
         applicationId = "com.ikasle.scrollkill"
         minSdk = 24
         targetSdk = 37
+        // versionCode is monotonic - bump it on every store upload, never reuse a value.
+        // versionName is the user-facing semver.
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            if (hasReleaseKeystore) {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            // R8 (code + resource shrinking) stays OFF until a minified release APK
+            // has been smoke-tested on a device: checklist E4. To enable, set
+            // `enable = true` and verify against the real app - the accessibility
+            // service binds and detects, BlockingEngine fires GLOBAL_ACTION_BACK,
+            // Settings round-trips persist, session history writes and prunes -
+            // then add any missing keeps to proguard-rules.pro.
             optimization {
                 enable = false
             }
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
+            // Assigned only when keystore.properties is present; otherwise the
+            // release APK is left unsigned, unchanged from before Session 11.
+            signingConfig = signingConfigs.getByName("release").takeIf { hasReleaseKeystore }
         }
     }
     compileOptions {
