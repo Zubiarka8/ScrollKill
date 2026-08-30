@@ -21,6 +21,19 @@
     <string name="home_history_total">%1$s total</string>
     <string name="home_app_usage_stats">%1$d sessions - %2$d nudges</string>
 
+    <!-- First-run rationale / prominent disclosure for the AccessibilityService.
+         Shown once before the system Accessibility dialog. Wording tracks the Google Play
+         "Use of the AccessibilityService API" disclosure + consent requirements. -->
+    <string name="onboarding_title">Before you turn on detection</string>
+    <string name="onboarding_intro">ScrollKill uses Android\'s accessibility service to notice when an infinite feed opens in another app, so it can nudge you to stop scrolling.</string>
+    <string name="onboarding_data_heading">What it reads</string>
+    <string name="onboarding_data_body">While the service is on, ScrollKill reads on-screen text and layout from the social apps you choose to watch. It uses this only on your device, only to tell whether a feed is on screen.</string>
+    <string name="onboarding_privacy_heading">What it does not do</string>
+    <string name="onboarding_privacy_body">Screen contents are never saved and never sent anywhere. No account, no cloud, no analytics. You can turn the service off at any time in Android Settings.</string>
+    <string name="onboarding_consent_note">Choosing \"Enable detection\" opens Android\'s Accessibility settings so you can turn ScrollKill on.</string>
+    <string name="onboarding_enable">Enable detection</string>
+    <string name="onboarding_skip">Not now</string>
+
     <!-- Settings screen -->
     <string name="settings_title">Settings</string>
     <string name="settings_back">Back</string>
