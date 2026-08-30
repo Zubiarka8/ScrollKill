@@ -51,6 +51,7 @@ class ScrollKillAccessibilityService : AccessibilityService() {
 
     /** Every package the detectors can handle: the candidate set the user picks from. */
     private val screenDetector = ScreenDetector.default()
+    private val eventFilter = EventFilter()
     private val snapshotExtractor = SnapshotExtractor()
     private val blockingEngine = BlockingEngine()
     private val sessionTracker = SessionTracker()
@@ -91,9 +92,6 @@ class ScrollKillAccessibilityService : AccessibilityService() {
 
     /** Most recently completed engagement. Null until the first session closes. */
     val lastCompletedSession: StateFlow<Session?> = _lastCompletedSession.asStateFlow()
-
-    /** Last handled event time per package — backs the debounce below. */
-    private val lastHandledMs = HashMap<String, Long>()
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -150,21 +148,22 @@ class ScrollKillAccessibilityService : AccessibilityService() {
         event ?: return
 
         // Cheap early-outs first: this fires on the main thread for every event.
-        val pkg = event.packageName?.toString() ?: return
-        if (pkg !in activeWatchedPackages) return
-
-        val fromWindowStateChange = when (event.eventType) {
-            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> true
-            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> false
-            else -> return
-        }
-
         val now = SystemClock.uptimeMillis()
-        if (now - (lastHandledMs[pkg] ?: 0L) < DEBOUNCE_MS) return
-        lastHandledMs[pkg] = now
+        val processed = eventFilter.evaluate(
+            packageName = event.packageName?.toString(),
+            eventType = event.eventType,
+            watchedPackages = activeWatchedPackages,
+            nowMs = now,
+        )
+        if (processed !is EventFilter.Outcome.Process) return
+        val pkg = processed.packageName
 
         val root: AccessibilityNodeInfo? = rootInActiveWindow
-        val snapshot = snapshotExtractor.extract(pkg, root, fromWindowStateChange)
+        val snapshot = snapshotExtractor.extract(
+            pkg,
+            root?.let(::AccessibilityNodeView),
+            processed.fromWindowStateChange,
+        )
         @Suppress("DEPRECATION")
         root?.recycle()
 
@@ -194,7 +193,7 @@ class ScrollKillAccessibilityService : AccessibilityService() {
 
     override fun onDestroy() {
         super.onDestroy()
-        lastHandledMs.clear()
+        eventFilter.clear()
         blockingEngine.reset()
         // Persist the session in progress before we lose it. One row on teardown, so a
         // brief blocking write here is acceptable.
@@ -212,6 +211,5 @@ class ScrollKillAccessibilityService : AccessibilityService() {
 
     private companion object {
         const val TAG = "ScrollKillA11y"
-        const val DEBOUNCE_MS = 250L
     }
 }
