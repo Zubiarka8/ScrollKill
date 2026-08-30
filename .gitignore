@@ -23,6 +23,7 @@ captures/
 
 # Local config & signing — never commit
 local.properties
+keystore.properties
 *.jks
 *.keystore
 
