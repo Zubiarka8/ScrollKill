@@ -1,10 +1,12 @@
 package com.ikasle.scrollkill.ui.settings
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import com.ikasle.scrollkill.data.settings.DailyLimit
 import com.ikasle.scrollkill.data.settings.RetentionWindow
 import com.ikasle.scrollkill.data.settings.SettingsRepository
 import com.ikasle.scrollkill.data.settings.StatsWindow
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -21,6 +23,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 /** One DataStore write per test (see SettingsRepositoryTest for the Windows rename note). */
+@OptIn(ExperimentalCoroutinesApi::class)
 class SettingsViewModelTest {
 
     @get:Rule
@@ -76,6 +79,34 @@ class SettingsViewModelTest {
         vm.setHistoryRetention(RetentionWindow.DAYS_30)
 
         assertEquals(RetentionWindow.DAYS_30, vm.uiState.first { it.historyRetention == RetentionWindow.DAYS_30 }.historyRetention)
+    }
+
+    @Test
+    fun `default daily limit choice is reflected, apps without an override inherit it`() = runTest {
+        val vm = newViewModel()
+
+        vm.setDefaultDailyLimit(DailyLimit.MIN_30)
+
+        val state = vm.uiState.first { it.defaultDailyLimit == DailyLimit.MIN_30 }
+        assertTrue(state.apps.all { it.dailyLimit == DailyLimit.MIN_30 && !it.dailyLimitIsOverride })
+    }
+
+    @Test
+    fun `per-app daily limit override marks only that row, others keep the default`() = runTest {
+        val vm = newViewModel()
+
+        vm.setAppDailyLimit("com.instagram.android", DailyLimit.MIN_5)
+
+        val state = vm.uiState.first { st ->
+            st.apps.any { it.packageName == "com.instagram.android" && it.dailyLimitIsOverride }
+        }
+        val instagram = state.apps.first { it.packageName == "com.instagram.android" }
+        assertEquals(DailyLimit.MIN_5, instagram.dailyLimit)
+        assertTrue(
+            // Default is still OFF (untouched); no other row is an override.
+            state.apps.filter { it.packageName != "com.instagram.android" }
+                .all { it.dailyLimit == DailyLimit.OFF && !it.dailyLimitIsOverride },
+        )
     }
 
     @Test
