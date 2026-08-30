@@ -113,6 +113,9 @@ class BlockingEngine(
     fun seedUsage(usedByPackage: Map<String, Long>, nowMs: Long) =
         usageMeter.seed(usedByPackage, nowMs)
 
+    // HAY QUE ELIMINAR (Session 10 battery profiling): read-through for ui.settings.DebugDetectionPanel.
+    fun debugUsedMs(packageName: String, nowMs: Long): Long = usageMeter.usedMs(packageName, nowMs)
+
     /** Forget all per-package memory (e.g. on service teardown). */
     fun reset() {
         stateByPackage.clear()
