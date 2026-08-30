@@ -5,6 +5,7 @@ import android.os.SystemClock
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import com.ikasle.scrollkill.BuildConfig
 import com.ikasle.scrollkill.ScrollKillApp
 import com.ikasle.scrollkill.blocking.BlockingDecision
 import com.ikasle.scrollkill.blocking.BlockingEngine
@@ -127,7 +128,7 @@ class ScrollKillAccessibilityService : AccessibilityService() {
             blockingEngine.seedUsage(used, SystemClock.uptimeMillis())
         }
 
-        Log.i(TAG, "connected; ${screenDetector.watchedPackages.size} candidate packages")
+        debugLog("connected; ${screenDetector.watchedPackages.size} candidate packages")
     }
 
     /**
@@ -141,7 +142,7 @@ class ScrollKillAccessibilityService : AccessibilityService() {
         val info = serviceInfo ?: return
         info.packageNames = packages.toTypedArray()
         setServiceInfo(info)
-        Log.d(TAG, "observing ${packages.size}/${screenDetector.watchedPackages.size} packages")
+        debugLog("observing ${packages.size}/${screenDetector.watchedPackages.size} packages")
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -170,25 +171,35 @@ class ScrollKillAccessibilityService : AccessibilityService() {
         val result = screenDetector.detect(snapshot)
         _detection.value = result
         if (result.isMatch) {
-            Log.d(TAG, "detected ${result.surface} in $pkg conf=${result.confidence}")
+            debugLog("detected ${result.surface} in $pkg conf=${result.confidence}")
         }
 
         val decision = blockingEngine.decide(result, now)
         _blockingDecision.value = decision
         if (decision is BlockingDecision.Intervene) {
-            Log.d(TAG, "intervene ${decision.surface} in ${decision.packageName} conf=${decision.confidence}")
+            debugLog("intervene ${decision.surface} in ${decision.packageName} conf=${decision.confidence}")
             if (interveneEnabled) performGlobalAction(GLOBAL_ACTION_BACK)
         }
 
         sessionTracker.track(result, decision, now)?.let { session ->
             _lastCompletedSession.value = session
-            Log.d(TAG, "session ended $session")
+            debugLog("session ended $session")
             serviceScope.launch { sessionRepository.record(session) }
         }
     }
 
     override fun onInterrupt() {
         // Required override. No queued work to cancel yet.
+    }
+
+    /**
+     * Debug-only logging. These lines name the foreground social app and its surface, plus
+     * per-session engagement counts; that is user behavioural data and must never reach
+     * logcat in a release build (CLAUDE.md: keep user data local, zero tracking). R8 is off,
+     * so a compile-time [BuildConfig.DEBUG] guard is what strips them.
+     */
+    private fun debugLog(message: String) {
+        if (BuildConfig.DEBUG) Log.d(TAG, message)
     }
 
     override fun onDestroy() {
