@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?><!--
-   Auto Backup rules for devices on API 30 and below.
-   See https://developer.android.com/guide/topics/data/autobackup
--->
-<full-backup-content>
-    <!-- Session history stays on-device (CLAUDE.md: keep user data local, no cloud). -->
-    <exclude domain="database" path="scrollkill.db" />
-</full-backup-content>
