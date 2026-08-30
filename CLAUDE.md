@@ -157,7 +157,7 @@ Never invent Android APIs.
 
 ## Workflow skills (use proactively)
 
-Route work through the matching skill from `.agents/skills/` instead of ad-hoc editing. Invoke it
+Route work through the matching skill from `.claude/skills/` instead of ad-hoc editing. Invoke it
 via the Skill tool at the start of the task; do not wait to be asked.
 
 - New feature / behaviour / product slice -> `lean-build` (after the `/feature` branch+plan+approve steps; `lean-build` covers the implementation).
