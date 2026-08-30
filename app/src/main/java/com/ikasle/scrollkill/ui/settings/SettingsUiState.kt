@@ -10,7 +10,7 @@ data class SettingsUiState(
     val statsWindow: StatsWindow = StatsWindow.LAST_7_DAYS,
     val historyRetention: RetentionWindow = RetentionWindow.DAYS_90,
     /** Daily budget applied to every watched app that has no per-app override. */
-    val defaultDailyLimit: DailyLimit = DailyLimit.OFF,
+    val defaultDailyLimit: DailyLimit = DailyLimit.Off,
     /** One row per watched app, sorted by display name. */
     val apps: List<AppToggleUi> = emptyList(),
 )
@@ -26,7 +26,7 @@ data class AppToggleUi(
      */
     val watchedEnabled: Boolean = true,
     /** The budget in effect for this app: its override if set, otherwise the global default. */
-    val dailyLimit: DailyLimit = DailyLimit.OFF,
+    val dailyLimit: DailyLimit = DailyLimit.Off,
     /** true = [dailyLimit] comes from a per-app override; false = it is the inherited default. */
     val dailyLimitIsOverride: Boolean = false,
 )

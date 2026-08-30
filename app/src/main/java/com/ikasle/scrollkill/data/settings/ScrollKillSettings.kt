@@ -16,7 +16,7 @@ data class ScrollKillSettings(
      */
     val watchingDisabledPackages: Set<String> = emptySet(),
     /** Daily budget applied to every watched app unless [dailyLimitOverrides] says otherwise. */
-    val defaultDailyLimit: DailyLimit = DailyLimit.OFF,
+    val defaultDailyLimit: DailyLimit = DailyLimit.Off,
     /** Per-app daily budget that wins over [defaultDailyLimit]. Absent = use the default. */
     val dailyLimitOverrides: Map<String, DailyLimit> = emptyMap(),
     /**

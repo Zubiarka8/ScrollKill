@@ -166,8 +166,8 @@ class HomeViewModelTest {
 
     @Test
     fun `today limit progress uses the per-app override over the default`() = runTest {
-        settingsRepository.setDefaultDailyLimit(DailyLimit.MIN_60)
-        settingsRepository.setDailyLimitOverride("com.instagram.android", DailyLimit.MIN_30)
+        settingsRepository.setDefaultDailyLimit(DailyLimit.Minutes(60))
+        settingsRepository.setDailyLimitOverride("com.instagram.android", DailyLimit.Minutes(30))
         insertSession("com.instagram.android", endedAtEpochMs = now - 3_600_000, durationMs = 15 * 60_000L)
 
         val app = viewModel().uiState
@@ -194,7 +194,7 @@ class HomeViewModelTest {
 
     @Test
     fun `today usage at or past the budget is flagged over limit`() = runTest {
-        settingsRepository.setDefaultDailyLimit(DailyLimit.MIN_10)
+        settingsRepository.setDefaultDailyLimit(DailyLimit.Minutes(10))
         insertSession("com.instagram.android", endedAtEpochMs = now - 3_600_000, durationMs = 12 * 60_000L)
 
         val app = viewModel().uiState

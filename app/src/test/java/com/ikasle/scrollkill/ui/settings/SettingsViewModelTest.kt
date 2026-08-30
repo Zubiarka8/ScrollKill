@@ -97,27 +97,27 @@ class SettingsViewModelTest {
     fun `default daily limit choice is reflected, apps without an override inherit it`() = runTest {
         val vm = newViewModel()
 
-        vm.setDefaultDailyLimit(DailyLimit.MIN_30)
+        vm.setDefaultDailyLimit(DailyLimit.Minutes(30))
 
-        val state = vm.uiState.first { it.defaultDailyLimit == DailyLimit.MIN_30 }
-        assertTrue(state.apps.all { it.dailyLimit == DailyLimit.MIN_30 && !it.dailyLimitIsOverride })
+        val state = vm.uiState.first { it.defaultDailyLimit == DailyLimit.Minutes(30) }
+        assertTrue(state.apps.all { it.dailyLimit == DailyLimit.Minutes(30) && !it.dailyLimitIsOverride })
     }
 
     @Test
     fun `per-app daily limit override marks only that row, others keep the default`() = runTest {
         val vm = newViewModel()
 
-        vm.setAppDailyLimit("com.instagram.android", DailyLimit.MIN_5)
+        vm.setAppDailyLimit("com.instagram.android", DailyLimit.Minutes(5))
 
         val state = vm.uiState.first { st ->
             st.apps.any { it.packageName == "com.instagram.android" && it.dailyLimitIsOverride }
         }
         val instagram = state.apps.first { it.packageName == "com.instagram.android" }
-        assertEquals(DailyLimit.MIN_5, instagram.dailyLimit)
+        assertEquals(DailyLimit.Minutes(5), instagram.dailyLimit)
         assertTrue(
             // Default is still OFF (untouched); no other row is an override.
             state.apps.filter { it.packageName != "com.instagram.android" }
-                .all { it.dailyLimit == DailyLimit.OFF && !it.dailyLimitIsOverride },
+                .all { it.dailyLimit == DailyLimit.Off && !it.dailyLimitIsOverride },
         )
     }
 

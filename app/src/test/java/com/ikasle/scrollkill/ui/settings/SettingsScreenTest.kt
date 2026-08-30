@@ -2,11 +2,13 @@ package com.ikasle.scrollkill.ui.settings
 
 import android.content.Context
 import androidx.annotation.StringRes
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasAnySibling
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isNotEnabled
 import androidx.compose.ui.test.isSelectable
@@ -17,6 +19,7 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ApplicationProvider
 import com.ikasle.scrollkill.R
 import com.ikasle.scrollkill.data.settings.DailyLimit
@@ -83,7 +86,7 @@ class SettingsScreenTest {
     private fun app(
         watched: Boolean = true,
         blocking: Boolean = true,
-        limit: DailyLimit = DailyLimit.OFF,
+        limit: DailyLimit = DailyLimit.Off,
         override: Boolean = false,
     ) = AppToggleUi(
         packageName = pkg,
@@ -165,15 +168,15 @@ class SettingsScreenTest {
     fun defaultDailyLimit_marksCurrentAndReportsPick() {
         var picked: DailyLimit? = null
         setScreen(
-            SettingsUiState(defaultDailyLimit = DailyLimit.MIN_30),
+            SettingsUiState(defaultDailyLimit = DailyLimit.Minutes(30)),
             onPickDefaultDailyLimit = { picked = it },
         )
 
-        radioFor(DailyLimit.MIN_30.label).assertIsSelected()
-        radioFor(DailyLimit.OFF.label).assertIsNotSelected()
+        radioFor(DailyLimit.Minutes(30).label).assertIsSelected()
+        radioFor(DailyLimit.Off.label).assertIsNotSelected()
 
-        compose.onNodeWithText(DailyLimit.MIN_60.label).performScrollTo().performClick()
-        assertEquals(DailyLimit.MIN_60, picked)
+        compose.onNodeWithText(DailyLimit.Minutes(60).label).performScrollTo().performClick()
+        assertEquals(DailyLimit.Minutes(60), picked)
     }
 
     @Test
@@ -188,13 +191,13 @@ class SettingsScreenTest {
     fun perAppDailyLimit_sectionShown_useDefaultSelected_whenNoOverride() {
         setScreen(
             SettingsUiState(
-                defaultDailyLimit = DailyLimit.MIN_10,
+                defaultDailyLimit = DailyLimit.Minutes(10),
                 apps = listOf(app(watched = true, override = false)),
             ),
         )
 
         compose.onNodeWithText(str(R.string.settings_section_daily_limit_per_app)).assertExists()
-        radioFor(str(R.string.settings_daily_limit_use_default, DailyLimit.MIN_10.label))
+        radioFor(str(R.string.settings_daily_limit_use_default, DailyLimit.Minutes(10).label))
             .assertIsSelected()
     }
 
@@ -203,7 +206,7 @@ class SettingsScreenTest {
         var picked: Pair<String, DailyLimit?>? = null
         setScreen(
             SettingsUiState(
-                defaultDailyLimit = DailyLimit.OFF,
+                defaultDailyLimit = DailyLimit.Off,
                 apps = listOf(app(watched = true, override = false)),
             ),
             onPickAppDailyLimit = { p, l -> picked = p to l },
@@ -211,9 +214,9 @@ class SettingsScreenTest {
 
         // "30 min/day" renders in both the default list and the per-app list; index 1 is the
         // per-app row (declared, and laid out, after the default section).
-        compose.onAllNodesWithText(DailyLimit.MIN_30.label)[1].performScrollTo().performClick()
+        compose.onAllNodesWithText(DailyLimit.Minutes(30).label)[1].performScrollTo().performClick()
 
-        assertEquals(pkg to DailyLimit.MIN_30, picked)
+        assertEquals(pkg to DailyLimit.Minutes(30), picked)
     }
 
     @Test
@@ -221,17 +224,52 @@ class SettingsScreenTest {
         var picked: Pair<String, DailyLimit?>? = null
         setScreen(
             SettingsUiState(
-                defaultDailyLimit = DailyLimit.MIN_15,
-                apps = listOf(app(watched = true, override = true, limit = DailyLimit.MIN_5)),
+                defaultDailyLimit = DailyLimit.Minutes(15),
+                apps = listOf(app(watched = true, override = true, limit = DailyLimit.Minutes(5))),
             ),
             onPickAppDailyLimit = { p, l -> picked = p to l },
         )
 
-        compose.onNodeWithText(str(R.string.settings_daily_limit_use_default, DailyLimit.MIN_15.label))
+        compose.onNodeWithText(str(R.string.settings_daily_limit_use_default, DailyLimit.Minutes(15).label))
             .performScrollTo()
             .performClick()
 
         assertEquals(pkg to null, picked)
+    }
+
+    @Test
+    fun defaultDailyLimit_customValue_marksCustomRowSelected() {
+        setScreen(SettingsUiState(defaultDailyLimit = DailyLimit.Minutes(12)))
+
+        radioFor(str(R.string.settings_daily_limit_custom_current, DailyLimit.Minutes(12).label))
+            .assertIsSelected()
+    }
+
+    @Test
+    fun defaultDailyLimit_customRow_opensDialog_andReportsTypedMinutes() {
+        var picked: DailyLimit? = null
+        setScreen(
+            SettingsUiState(defaultDailyLimit = DailyLimit.Off),
+            onPickDefaultDailyLimit = { picked = it },
+        )
+
+        compose.onNodeWithText(str(R.string.settings_daily_limit_custom))
+            .performScrollTo().performClick()
+        compose.onNode(hasSetTextAction()).performTextInput("42")
+        compose.onNodeWithText(str(R.string.settings_daily_limit_custom_dialog_confirm)).performClick()
+
+        assertEquals(DailyLimit.Minutes(42), picked)
+    }
+
+    @Test
+    fun customDailyLimitDialog_confirmDisabled_forOutOfRangeMinutes() {
+        setScreen(SettingsUiState(defaultDailyLimit = DailyLimit.Off))
+
+        compose.onNodeWithText(str(R.string.settings_daily_limit_custom))
+            .performScrollTo().performClick()
+        compose.onNode(hasSetTextAction()).performTextInput("999")
+
+        compose.onNodeWithText(str(R.string.settings_daily_limit_custom_dialog_confirm)).assertIsNotEnabled()
     }
 
     @Test

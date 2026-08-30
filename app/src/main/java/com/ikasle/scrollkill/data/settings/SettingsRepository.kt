@@ -35,7 +35,7 @@ class SettingsRepository(
                 blockingDisabledPackages = prefs[BLOCKING_DISABLED_PACKAGES] ?: defaults.blockingDisabledPackages,
                 watchingDisabledPackages = prefs[WATCHING_DISABLED_PACKAGES] ?: defaults.watchingDisabledPackages,
                 defaultDailyLimit = prefs[DEFAULT_DAILY_LIMIT]
-                    ?.let { name -> runCatching { DailyLimit.valueOf(name) }.getOrNull() }
+                    ?.let(DailyLimit::parse)
                     ?: defaults.defaultDailyLimit,
                 dailyLimitOverrides = prefs[DAILY_LIMIT_OVERRIDES]
                     ?.let(::parseDailyLimitOverrides)
@@ -89,7 +89,7 @@ class SettingsRepository(
 
     /** Set the daily budget applied to every watched app by default. */
     suspend fun setDefaultDailyLimit(limit: DailyLimit) {
-        dataStore.edit { it[DEFAULT_DAILY_LIMIT] = limit.name }
+        dataStore.edit { it[DEFAULT_DAILY_LIMIT] = limit.storageToken }
     }
 
     /**
@@ -102,7 +102,7 @@ class SettingsRepository(
                 .filterNot { it.substringBeforeLast('=') == packageName }
                 .toSet()
             prefs[DAILY_LIMIT_OVERRIDES] =
-                if (limit == null) kept else kept + "$packageName=${limit.name}"
+                if (limit == null) kept else kept + "$packageName=${limit.storageToken}"
         }
     }
 
@@ -153,13 +153,13 @@ class SettingsRepository(
         val HISTORY_RETENTION = stringPreferencesKey("history_retention")
         val ONBOARDING_COMPLETE = booleanPreferencesKey("onboarding_complete")
 
-        /** Parse `"pkg=ENUM_NAME"` tokens; malformed tokens and unknown enum names are dropped. */
+        /** Parse `"pkg=TOKEN"` entries; malformed entries and unknown tokens are dropped. */
         fun parseDailyLimitOverrides(tokens: Set<String>): Map<String, DailyLimit> =
             tokens.mapNotNull { token ->
                 val name = token.substringAfterLast('=', missingDelimiterValue = "")
                 val pkg = token.substringBeforeLast('=', missingDelimiterValue = "")
                 if (pkg.isEmpty() || name.isEmpty()) return@mapNotNull null
-                runCatching { DailyLimit.valueOf(name) }.getOrNull()?.let { pkg to it }
+                DailyLimit.parse(name)?.let { pkg to it }
             }.toMap()
     }
 }
