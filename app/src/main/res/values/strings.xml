@@ -45,11 +45,19 @@
     <string name="settings_app_watch">Watch</string>
     <string name="settings_app_nudge">Nudge</string>
     <string name="settings_app_unwatched_hint">Not watched: detection, nudges and daily limits are off for this app.</string>
-    <string name="settings_section_daily_limit">Daily limit</string>
-    <string name="settings_section_daily_limit_per_app">Daily limit per app</string>
-    <string name="settings_daily_limit_use_default">Use default (%1$s)</string>
+    <string name="settings_section_daily_limit">Daily limits</string>
+    <string name="settings_daily_limit_subtitle">Set a daily limit per app for a healthier scroll.</string>
+    <string name="settings_daily_limit_default_row">Default for every app</string>
     <string name="settings_daily_limit_custom">Custom…</string>
-    <string name="settings_daily_limit_custom_current">Custom (%1$s)</string>
+    <!-- Menu row that clears a per-app override. %1$s is the global default, e.g. "30 min". -->
+    <string name="settings_daily_limit_use_default">Use default (%1$s)</string>
+    <!-- Compact limit-pill captions. %1$d minutes; %2$d hours; %3$d leftover minutes. -->
+    <string name="settings_daily_limit_pill_off">No limit</string>
+    <string name="settings_daily_limit_pill_minutes">%1$d min</string>
+    <string name="settings_daily_limit_pill_hours">%1$dh</string>
+    <string name="settings_daily_limit_pill_hours_minutes">%1$dh %2$dm</string>
+    <string name="settings_daily_limit_change">Change limit for %1$s</string>
+    <string name="settings_daily_limit_enforce">Enforce the limit for %1$s</string>
     <string name="settings_daily_limit_custom_dialog_title">Custom daily limit</string>
     <string name="settings_daily_limit_custom_dialog_label">Minutes per day</string>
     <string name="settings_daily_limit_custom_dialog_hint">Enter a value from %1$d to %2$d</string>
