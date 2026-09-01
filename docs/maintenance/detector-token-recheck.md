@@ -378,6 +378,15 @@ to "limit takes too long", but is **not** the cause of "never blocks" - that is 
   not-important-for-a11y never reach the snapshot and their `VIEW_ID` / `CLASS_NAME` tokens
   cannot match. Enabling it helps detection but costs battery (more nodes per event) -
   measure before changing.
+- **B-4 (config, confirmed 2026-09-01 by the fixture harness).** `SnapshotExtractor.MAX_DEPTH
+  = 12`, but on real captures the distinctive container ids sit at depth 15-28 (Instagram
+  `clips_viewer` @18, YouTube `reel_recycler` @20, Instagram `explore_action_bar` @16); the
+  live hierarchies are 19-32 levels deep. The BFS stops at depth 12, so the snapshot only
+  ever holds the top chrome (nav bar, `layout_container_*`, `tab_bar`) and **none** of the
+  signal-bearing nodes. This alone drops Instagram Reels and YouTube Shorts to `0.10`
+  (package only) even though their `VIEW_ID` token lists are correct. Raising `MAX_DEPTH`
+  (and probably `MAX_NODES`) is the first fix; it has a per-event cost, so measure. Visible
+  in `DetectorFixtureReportTest`'s `tree :` line.
 - **Not a bug:** `CLASS` + `CONTENT_DESC` = `0.60` passing `>= MATCH_THRESHOLD` is intended
   (needs two independent cues, which it has).
 
@@ -393,6 +402,21 @@ Append one row per surface per re-check run.
 | Date | Device / OS | App + version | Device lang | Surface | Result | Conf | Action taken |
 |---|---|---|---|---|---|---|---|
 | _2026-08-30_ | _(pending - no device this session)_ | - | - | - | - | - | doc + `texts` added to debug card |
+| _2026-09-01_ | OPPO Find X9 Pro / ColorOS 16 (CPH2791) | (not recorded) | es | TikTok For You | FAIL | 0.10 | captured -> `tiktok-fyp.xml`; B-1/B-4/i18n all hit |
+| _2026-09-01_ | " | " | es | Instagram Feed | FAIL | 0.10 | `instagram-feed.xml`; `VIEW_ID` tokens wrong + B-4 |
+| _2026-09-01_ | " | " | es | Instagram Reels | FAIL | 0.10 | `instagram-reels.xml`; `clips_viewer` present but @depth 18 (B-4) |
+| _2026-09-01_ | " | " | es | Instagram Explore | FAIL | 0.10 | `instagram-explore.xml`; `VIEW_ID` tokens wrong + B-4 |
+| _2026-09-01_ | " | " | es | YouTube Shorts | FAIL | 0.10 | `youtube-shorts.xml`; `reel_recycler` present but @depth 20 (B-4) |
+
+Captures via `scripts/detector-capture/` (uiautomator dump, not the debug card), replayed
+through the production `SnapshotExtractor` + `ScreenDetector` by `DetectorFixtureReportTest`.
+All five score `0.10` (package only) once `SnapshotExtractor`'s depth cap is applied. Three
+independent causes stacked: **B-4** (depth cap hides every signal node), **B-1** + wrong
+`VIEW_ID` lists (TikTok obfuscated, Instagram feed/explore ids drifted), and **i18n** (device
+is Spanish: `Para ti`/`Siguiendo`/`Reel de`, not the hard-coded English tokens). Facebook not
+captured this run (user scope). No detector token edited yet - fix order is B-4 first (raise
+caps, re-capture), then repair `VIEW_ID` lists against the fresh snapshots, then add localized
+`text`/`contentDescription` tokens.
 
 ## 8. Cadence
 
