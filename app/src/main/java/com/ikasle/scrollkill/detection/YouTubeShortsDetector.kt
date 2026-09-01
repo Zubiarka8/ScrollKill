@@ -37,6 +37,10 @@ class YouTubeShortsDetector : AppDetector {
             confidence += WEIGHT_CONTENT_DESC
             signals += Signal.CONTENT_DESCRIPTION
         }
+        if (snapshot.texts.containsAnyToken(SHORTS_TEXT_TOKENS)) {
+            confidence += WEIGHT_TEXT
+            signals += Signal.TEXT
+        }
 
         confidence = confidence.coerceAtMost(1f)
 
@@ -61,6 +65,7 @@ class YouTubeShortsDetector : AppDetector {
         const val WEIGHT_VIEW_ID = 0.45f
         const val WEIGHT_CLASS_NAME = 0.25f
         const val WEIGHT_CONTENT_DESC = 0.25f
+        const val WEIGHT_TEXT = 0.25f
         const val MATCH_THRESHOLD = 0.60f
 
         // TODO(youtube): verify against current YouTube build; expected to drift.
@@ -71,5 +76,11 @@ class YouTubeShortsDetector : AppDetector {
 
         // TODO(youtube): verify against current YouTube build; expected to drift.
         val SHORTS_CONTENT_DESC_TOKENS = listOf("Shorts player", "Short number", "Shorts feed")
+
+        // No text-only label identified yet for this surface (docs/maintenance/detector-token-
+        // recheck.md gap B-2 flags the other three detectors' CONTENT_DESCRIPTION tokens as
+        // likely text; none of these three were called out the same way). Left empty rather
+        // than guessing new tokens.
+        val SHORTS_TEXT_TOKENS = emptyList<String>()
     }
 }

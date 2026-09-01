@@ -74,6 +74,24 @@ class FacebookDetectorTest {
     }
 
     @Test
+    fun `feed viewId and text (no contentDescription) still detect FEED`() {
+        // "What's on your mind" is the composer hint: almost certainly android:text, not
+        // contentDescription (see docs/maintenance/detector-token-recheck.md gap B-2).
+        val result = detector.detect(
+            ScreenSnapshot(
+                packageName = "com.facebook.katana",
+                viewIds = setOf(feedViewId),
+                texts = listOf(feedContentDesc),
+            ),
+        )
+
+        assertTrue(result.isMatch)
+        assertEquals(Surface.FEED, result.surface)
+        assertTrue("confidence was ${result.confidence}", result.confidence >= 0.60f)
+        assertTrue(result.matchedSignals.containsAll(setOf(Signal.VIEW_ID, Signal.TEXT)))
+    }
+
+    @Test
     fun `Reels viewId and contentDescription detect SHORT_VIDEO`() {
         val result = detector.detect(
             ScreenSnapshot(

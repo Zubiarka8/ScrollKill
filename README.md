@@ -12,9 +12,9 @@ happens on-device.
 
 - Watches a set of social apps for infinite-content surfaces (home feeds, Reels/Shorts,
   explore grids).
-- Uses per-app detectors that combine several UI signals (view ids, class names, content
-  descriptions, package, window state) into a confidence score, rather than matching a
-  single text string.
+- Uses per-app detectors that combine several UI signals (view ids, class names, text,
+  content descriptions, package, window state) into a confidence score, rather than matching
+  a single text string.
 - Keeps detection and blocking as separate systems: a detector only returns a
   `DetectionResult`; the `BlockingEngine` decides whether to act (with a per-app cooldown),
   and only the service performs the action.
@@ -91,8 +91,10 @@ Planned / not yet built:
 - The first real Room `Migration`. The schema is still at version 1, so there is nothing to
   migrate yet; the destructive fallback is already gone and `MigrationTestHelper`
   scaffolding is in place for the first schema change.
-- Verifying the per-app detector signal tokens against current app builds, plus a repeatable
-  re-check process, as the target apps drift.
+- Verifying the per-app detector view-id and class-name signal tokens against current app
+  builds, plus a repeatable re-check process, as the target apps drift (a related gap - no
+  detector reading the extracted node `text` - is closed; the view-id/class-name lists
+  themselves are still unverified against current builds and need an on-device capture).
 - Richer interventions beyond a single Back press.
 - More surfaces and detectors.
 - A designed launcher icon (still the Android Studio template) and general UI polish.

@@ -39,6 +39,10 @@ class TikTokDetector : AppDetector {
             confidence += WEIGHT_CONTENT_DESC
             signals += Signal.CONTENT_DESCRIPTION
         }
+        if (snapshot.texts.containsAnyToken(FEED_TEXT_TOKENS)) {
+            confidence += WEIGHT_TEXT
+            signals += Signal.TEXT
+        }
 
         confidence = confidence.coerceAtMost(1f)
 
@@ -63,6 +67,7 @@ class TikTokDetector : AppDetector {
         const val WEIGHT_VIEW_ID = 0.45f
         const val WEIGHT_CLASS_NAME = 0.25f
         const val WEIGHT_CONTENT_DESC = 0.25f
+        const val WEIGHT_TEXT = 0.25f
         const val MATCH_THRESHOLD = 0.60f
 
         // TODO(tiktok): verify against current TikTok build; expected to drift.
@@ -73,5 +78,12 @@ class TikTokDetector : AppDetector {
 
         // TODO(tiktok): verify against current TikTok build; expected to drift.
         val FEED_CONTENT_DESC_TOKENS = listOf("For You", "Following", "Like number", "Speed dial")
+
+        // "For You" / "Following" are the top-tab labels: almost certainly android:text on
+        // the tab bar, not contentDescription (docs/maintenance/detector-token-recheck.md
+        // gap B-2). Checked against snapshot.texts as well so a real capture where they only
+        // land as text still crosses MATCH_THRESHOLD alongside VIEW_ID. Also localized, so
+        // this still misses non-English devices - out of scope for this fix.
+        val FEED_TEXT_TOKENS = listOf("For You", "Following")
     }
 }
