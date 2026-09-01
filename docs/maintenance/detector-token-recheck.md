@@ -378,15 +378,17 @@ to "limit takes too long", but is **not** the cause of "never blocks" - that is 
   not-important-for-a11y never reach the snapshot and their `VIEW_ID` / `CLASS_NAME` tokens
   cannot match. Enabling it helps detection but costs battery (more nodes per event) -
   measure before changing.
-- **B-4 (config, confirmed 2026-09-01 by the fixture harness).** `SnapshotExtractor.MAX_DEPTH
-  = 12`, but on real captures the distinctive container ids sit at depth 15-28 (Instagram
-  `clips_viewer` @18, YouTube `reel_recycler` @20, Instagram `explore_action_bar` @16); the
-  live hierarchies are 19-32 levels deep. The BFS stops at depth 12, so the snapshot only
-  ever holds the top chrome (nav bar, `layout_container_*`, `tab_bar`) and **none** of the
-  signal-bearing nodes. This alone drops Instagram Reels and YouTube Shorts to `0.10`
-  (package only) even though their `VIEW_ID` token lists are correct. Raising `MAX_DEPTH`
-  (and probably `MAX_NODES`) is the first fix; it has a per-event cost, so measure. Visible
-  in `DetectorFixtureReportTest`'s `tree :` line.
+- **B-4 (config, confirmed 2026-09-01 by the fixture harness; FIXED same day).**
+  `SnapshotExtractor.MAX_DEPTH` was `12`, but on real captures the distinctive container ids
+  sit at depth 15-28 (Instagram `clips_viewer` @18, YouTube `reel_recycler` @20, Instagram
+  `explore_action_bar` @16); the live hierarchies are 19-32 levels deep. The BFS stopped at
+  depth 12, so the snapshot only held the top chrome (nav bar, `layout_container_*`,
+  `tab_bar`) and **none** of the signal-bearing nodes - dropping every watched surface to
+  `0.10` (package only). **Fix:** `MAX_DEPTH` 12 -> 28, `MAX_NODES` 400 -> 600. The
+  per-event work is bounded by `MAX_NODES` (BFS stops at that count regardless of depth), so
+  raising the depth alone does not raise the work ceiling; the `MAX_NODES` bump is safety
+  headroom over the ~100-170 nodes real feed trees actually carry. Visible in
+  `DetectorFixtureReportTest`'s `tree :` line.
 - **Not a bug:** `CLASS` + `CONTENT_DESC` = `0.60` passing `>= MATCH_THRESHOLD` is intended
   (needs two independent cues, which it has).
 
@@ -407,16 +409,32 @@ Append one row per surface per re-check run.
 | _2026-09-01_ | " | " | es | Instagram Reels | FAIL | 0.10 | `instagram-reels.xml`; `clips_viewer` present but @depth 18 (B-4) |
 | _2026-09-01_ | " | " | es | Instagram Explore | FAIL | 0.10 | `instagram-explore.xml`; `VIEW_ID` tokens wrong + B-4 |
 | _2026-09-01_ | " | " | es | YouTube Shorts | FAIL | 0.10 | `youtube-shorts.xml`; `reel_recycler` present but @depth 20 (B-4) |
+| _2026-09-01_ | (fix) | - | es | TikTok FYP | PASS | 0.60 | B-4 (depth 12->28) + `Para ti`/`Siguiendo` text+contentDesc tokens |
+| _2026-09-01_ | (fix) | - | es | Instagram Reels | PASS | 0.80 | B-4 + `reproducir o pausar` contentDesc token; `clips_viewer` viewId now reachable |
+| _2026-09-01_ | (fix) | - | es | YouTube Shorts | PASS | 0.80 | B-4 + `Shorts` text token; `reel_recycler` viewId now reachable |
 
 Captures via `scripts/detector-capture/` (uiautomator dump, not the debug card), replayed
 through the production `SnapshotExtractor` + `ScreenDetector` by `DetectorFixtureReportTest`.
-All five score `0.10` (package only) once `SnapshotExtractor`'s depth cap is applied. Three
-independent causes stacked: **B-4** (depth cap hides every signal node), **B-1** + wrong
-`VIEW_ID` lists (TikTok obfuscated, Instagram feed/explore ids drifted), and **i18n** (device
-is Spanish: `Para ti`/`Siguiendo`/`Reel de`, not the hard-coded English tokens). Facebook not
-captured this run (user scope). No detector token edited yet - fix order is B-4 first (raise
-caps, re-capture), then repair `VIEW_ID` lists against the fresh snapshots, then add localized
-`text`/`contentDescription` tokens.
+All five scored `0.10` (package only). Three independent causes stacked: **B-4** (depth cap
+hides every signal node), **B-1** + wrong `VIEW_ID` lists (TikTok obfuscated, Instagram
+feed/explore ids drifted), and **i18n** (device is Spanish: `Para ti`/`Siguiendo`/`Reel de`,
+not the hard-coded English tokens).
+
+**Fix applied 2026-09-01** (branch `fix/detector-depth-and-i18n-es`): B-4 (MAX_DEPTH 12->28,
+MAX_NODES 400->600) + Spanish `text`/`contentDescription` tokens. Fixture results after:
+
+| Fixture | Surface | Conf | Signals |
+|---|---|---|---|
+| tiktok-fyp | SHORT_VIDEO | 0.60 | PACKAGE + CONTENT_DESC + TEXT (`Para ti`) - no viewId, exactly at threshold, fragile |
+| instagram-reels | SHORT_VIDEO | 0.80 | PACKAGE + VIEW_ID (`clips_viewer`) + CONTENT_DESC (`reproducir o pausar`) |
+| youtube-shorts | SHORT_VIDEO | 0.80 | PACKAGE + VIEW_ID (`reel_recycler`) + TEXT (`Shorts`) |
+| instagram-feed | UNKNOWN | 0.00 | still needs a `VIEW_ID` repair (`row_feed_*` / `sticky_header_list`) - not done |
+| instagram-explore | UNKNOWN | 0.00 | still needs a `VIEW_ID` repair (`explore_action_bar` / `grid_card_layout_container`) - not done |
+
+Facebook not captured (user scope); it got the `Qué estás pensando` composer-hint token
+unverified, for parity. Remaining: Instagram feed/explore `VIEW_ID` repair, a real Facebook
+es capture, and TikTok is one TikTok tab-bar redesign away from silence again (0.60 with no
+viewId headroom).
 
 ## 8. Cadence
 

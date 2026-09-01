@@ -13,11 +13,12 @@ Real (and one synthetic) `uiautomator dump` XML captures, run through the produc
 
 Checked in (all from OPPO Find X9 Pro / ColorOS 16, device language Spanish, 2026-09-01):
 `tiktok-fyp.xml`, `instagram-feed.xml`, `instagram-reels.xml`, `instagram-explore.xml`,
-`youtube-shorts.xml`. Every one currently reports `BELOW 0.60` - see
-`docs/maintenance/detector-token-recheck.md` section 7 for why (depth cap B-4 + drifted
-`VIEW_ID` lists + English-only tokens). Usernames, captions and channel names were replaced
-with `Test User` / `testuser` / `Sample caption`; the structural labels the detectors read
-are untouched. Facebook not captured yet.
+`youtube-shorts.xml`. After the B-4 + i18n fix, `tiktok-fyp` / `instagram-reels` /
+`youtube-shorts` cross 0.60 (`UiHierarchyFixtureTest` asserts this); `instagram-feed` and
+`instagram-explore` still report `BELOW 0.60` pending a `VIEW_ID` repair - see
+`docs/maintenance/detector-token-recheck.md` section 7. Usernames, captions and channel names
+were replaced with `Test User` / `testuser` / `Sample caption`; the structural labels the
+detectors read are untouched. Facebook not captured yet.
 
 A capture may contain user-visible text in `text` / `content-desc` (a username, a caption).
 Trim anything personal before committing - the detectors only need structural labels.

@@ -116,7 +116,7 @@ class DetectorFixtureReportTest {
         const val MAX_TOKEN_LINES = 120
 
         // Mirror SnapshotExtractor.MAX_NODES / MAX_DEPTH (its companion is private).
-        const val EXTRACTOR_MAX_NODES = 400
-        const val EXTRACTOR_MAX_DEPTH = 12
+        const val EXTRACTOR_MAX_NODES = 600
+        const val EXTRACTOR_MAX_DEPTH = 28
     }
 }

@@ -78,6 +78,24 @@ class InstagramDetectorTest {
     }
 
     @Test
+    fun `Spanish per-reel contentDescription detects SHORT_VIDEO alongside the Reels viewId`() {
+        // es-locale: the reel item reads "Reel de X. Toca dos veces para reproducir o pausar."
+        val result = detector.detect(
+            ScreenSnapshot(
+                packageName = "com.instagram.android",
+                viewIds = setOf(reelsViewId),
+                contentDescriptions = listOf(
+                    "Reel de alguien. Toca dos veces para reproducir o pausar.",
+                ),
+            ),
+        )
+
+        assertTrue(result.isMatch)
+        assertEquals(Surface.SHORT_VIDEO, result.surface)
+        assertTrue("confidence was ${result.confidence}", result.confidence >= 0.60f)
+    }
+
+    @Test
     fun `home feed viewId and contentDescription together detect FEED`() {
         val result = detector.detect(
             ScreenSnapshot(

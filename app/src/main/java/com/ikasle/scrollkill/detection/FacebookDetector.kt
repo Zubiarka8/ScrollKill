@@ -119,8 +119,10 @@ class FacebookDetector : AppDetector {
         // "What's on your mind" is the composer hint: almost certainly android:text, not
         // contentDescription (docs/maintenance/detector-token-recheck.md gap B-2). Checked
         // against snapshot.texts too so a real capture where it only lands as text still
-        // contributes a signal.
-        val FEED_TEXT_TOKENS = listOf("What's on your mind")
+        // contributes a signal. "Qué estás pensando" is the Spanish equivalent, added for
+        // parity with the other detectors' i18n pass - NOT yet verified on a real es-locale
+        // Facebook capture (no fixture for this app yet).
+        val FEED_TEXT_TOKENS = listOf("What's on your mind", "Qué estás pensando")
 
         // TODO(facebook): verify against current Facebook build; expected to drift.
         val REELS_VIEW_ID_TOKENS = listOf("reels_viewer", "video_home_reels", "reels_tab", "reels_root")

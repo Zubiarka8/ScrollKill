@@ -109,17 +109,36 @@ class InstagramDetector : AppDetector {
         const val MATCH_THRESHOLD = 0.60f
 
         // TODO(instagram): verify all token lists against current Instagram build; expected to drift.
+        // clips_viewer* is the Reels pager container, confirmed present on a real capture
+        // (detector-fixtures/instagram-reels.xml) at depth 15-18 - reachable only since
+        // SnapshotExtractor.MAX_DEPTH was raised (bug B-4).
         val REELS_VIEW_ID_TOKENS = listOf("clips_viewer", "reel_feed_timeline", "reels_viewer")
         val REELS_CLASS_TOKENS = listOf("ClipsViewerFragment", "ReelViewerFragment")
-        val REELS_CONTENT_DESC_TOKENS = listOf("Reel by", "Audio page", "Like number")
+
+        // "play or pause" / "reproducir o pausar": the per-reel contentDescription
+        // ("Reel by X. Double tap to play or pause." / "Reel de X. Toca dos veces para
+        // reproducir o pausar."). Surface-distinctive - the Explore grid's reel tiles read
+        // "... en la fila N, columna M" instead. Spanish verified on instagram-reels.xml.
+        val REELS_CONTENT_DESC_TOKENS =
+            listOf("Reel by", "Audio page", "Like number", "play or pause", "reproducir o pausar")
 
         // No text-only label identified yet for this surface (see detector-token-recheck.md);
         // left empty rather than guessing new tokens.
         val REELS_TEXT_TOKENS = emptyList<String>()
 
+        // TODO(instagram): the viewId tokens below are stale - a real capture
+        // (detector-fixtures/instagram-explore.xml) shows explore_action_bar / recycler_view /
+        // grid_card_layout_container instead. Needs a dedicated viewId repair pass; not done
+        // here. Until then this surface leans on the grid-cell contentDescription below.
         val EXPLORE_VIEW_ID_TOKENS = listOf("explore_grid", "explore_recycler_view", "search_and_explore")
         val EXPLORE_CLASS_TOKENS = listOf("ExploreFragment", "ExploreGridFragment", "DiscoverFragment")
-        val EXPLORE_CONTENT_DESC_TOKENS = listOf("Search and explore", "Explore", "Trending")
+
+        // "in row" / "en la fila": every Explore grid tile's contentDescription reads
+        // "... in row N, column M" ("... en la fila N, columna M"). Distinctive to the grid -
+        // the Reels player and home feed do not use row/column position labels. Spanish
+        // verified on instagram-explore.xml.
+        val EXPLORE_CONTENT_DESC_TOKENS =
+            listOf("Search and explore", "Explore", "Trending", "in row", "en la fila")
 
         // "Explore" is a single-word nav-bar label: likely android:text, not
         // contentDescription (docs/maintenance/detector-token-recheck.md gap B-2). Checked
