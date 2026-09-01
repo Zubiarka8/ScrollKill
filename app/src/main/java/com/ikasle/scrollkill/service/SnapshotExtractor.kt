@@ -18,15 +18,25 @@ class SnapshotExtractor(
 ) {
 
     /**
-     * @param root the active window root; may be null, which yields an empty snapshot.
-     *   The caller owns [root] and is responsible for recycling it. Child nodes obtained
-     *   during traversal are recycled here.
+     * @param eventPackageName the package the triggering accessibility event named. Used only
+     *   as a fallback: the snapshot's package is taken from [root] when it is available, since
+     *   an event can arrive from an app that is already leaving the foreground while
+     *   [android.accessibilityservice.AccessibilityService.getRootInActiveWindow] already
+     *   points at whatever replaced it (the launcher, another app). Keying detection off the
+     *   node tree that was actually walked keeps the detector from scoring one app's tokens
+     *   against another's UI.
+     * @param root the active window root; may be null, which yields an empty snapshot keyed on
+     *   [eventPackageName]. The caller owns [root] and is responsible for recycling it. Child
+     *   nodes obtained during traversal are recycled here.
      */
     fun extract(
-        packageName: String,
+        eventPackageName: String,
         root: NodeView?,
         fromWindowStateChange: Boolean,
     ): ScreenSnapshot {
+        val onScreenPackage = root?.packageName?.toString()?.takeIf { it.isNotBlank() }
+            ?: eventPackageName
+
         val viewIds = HashSet<String>()
         val classNames = HashSet<String>()
         val texts = ArrayList<String>()
@@ -64,7 +74,7 @@ class SnapshotExtractor(
         }
 
         return ScreenSnapshot(
-            packageName = packageName,
+            packageName = onScreenPackage,
             fromWindowStateChange = fromWindowStateChange,
             viewIds = viewIds,
             classNames = classNames,

@@ -11,6 +11,8 @@ import android.view.accessibility.AccessibilityNodeInfo
  * is capped and short-lived.
  */
 interface NodeView {
+    /** Owning package of the node's window. Read from the root to know what is really on screen. */
+    val packageName: CharSequence?
     val viewId: String?
     val className: CharSequence?
     val text: CharSequence?
@@ -27,6 +29,7 @@ interface NodeView {
 /** [NodeView] backed by a real [AccessibilityNodeInfo]. */
 class AccessibilityNodeView(private val node: AccessibilityNodeInfo) : NodeView {
 
+    override val packageName: CharSequence? get() = node.packageName
     override val viewId: String? get() = node.viewIdResourceName
     override val className: CharSequence? get() = node.className
     override val text: CharSequence? get() = node.text

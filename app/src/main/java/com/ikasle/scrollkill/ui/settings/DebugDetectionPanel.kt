@@ -83,7 +83,14 @@ private fun renderSnapshot(s: DebugSnapshot?): String {
         return "AccessibilityService not running.\nEnable it, scroll the app, then reopen this screen."
     }
     val b = StringBuilder()
-    b.appendLine("foreground : ${s.foregroundPackage ?: "-"}")
+    val onScreen = s.foregroundPackage ?: "-"
+    b.appendLine("screen pkg : $onScreen")
+    // A capture taken while switching apps carries the leaving app's event but the
+    // arriving app's (or the launcher's) node tree - detection runs against `screen pkg`,
+    // so if these differ the capture is not the app you think you captured.
+    if (s.eventPackage != null && s.eventPackage != s.foregroundPackage) {
+        b.appendLine("event pkg  : ${s.eventPackage}  <-- MISMATCH, re-capture on the app")
+    }
     b.appendLine(
         "last match : ${if (s.matched) s.surface else "none"}  " +
             "(conf ${String.format(Locale.US, "%.2f", s.confidence)})",
@@ -105,7 +112,7 @@ private fun renderSnapshot(s: DebugSnapshot?): String {
         b.appendLine("tokens     : (none yet - scroll the app's feed, then reopen)")
     } else {
         b.appendLine()
-        b.appendLine("--- last snapshot tokens (${s.foregroundPackage ?: "-"}) ---")
+        b.appendLine("--- last snapshot tokens ($onScreen) ---")
         b.appendLine("viewIds (${t.viewIds.size}):")
         t.viewIds.forEach { b.appendLine("  $it") }
         b.appendLine("classNames (${t.classNames.size}):")

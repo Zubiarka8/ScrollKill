@@ -85,7 +85,10 @@ data class DebugTokens(
 
 // HAY QUE ELIMINAR (Session 10 battery profiling): payload for ui.settings.DebugDetectionPanel.
 data class DebugSnapshot(
+    /** Package the detector actually ran against (taken from the walked node tree). */
     val foregroundPackage: String?,
+    /** Package the triggering event named; differs from [foregroundPackage] on a mid-switch capture. */
+    val eventPackage: String?,
     val matched: Boolean,
     val surface: String,
     val confidence: Float,
@@ -148,6 +151,12 @@ class ScrollKillAccessibilityService : AccessibilityService() {
     // HAY QUE ELIMINAR (Session 13 detector token verify): raw tokens from the last snapshot.
     @Volatile
     private var lastDebugTokens: DebugTokens? = null
+
+    // HAY QUE ELIMINAR (Session 13 detector token verify): package the last processed event
+    // named, kept so the debug card can flag it when it differs from the package actually on
+    // screen (a capture taken mid app-switch is not the target app, only looks like it).
+    @Volatile
+    private var lastDebugEventPackage: String? = null
 
     private val _detection = MutableStateFlow<DetectionResult?>(null)
 
@@ -252,9 +261,12 @@ class ScrollKillAccessibilityService : AccessibilityService() {
         val result = screenDetector.detect(snapshot)
         _detection.value = result
         // HAY QUE ELIMINAR (Session 13 detector token verify)
-        if (BuildConfig.DEBUG) lastDebugTokens = DebugTokens.from(snapshot)
+        if (BuildConfig.DEBUG) {
+            lastDebugTokens = DebugTokens.from(snapshot)
+            lastDebugEventPackage = pkg
+        }
         if (result.isMatch) {
-            debugLog("detected ${result.surface} in $pkg conf=${result.confidence}")
+            debugLog("detected ${result.surface} in ${snapshot.packageName} conf=${result.confidence}")
         }
 
         val decision = blockingEngine.decide(result, now)
@@ -281,6 +293,7 @@ class ScrollKillAccessibilityService : AccessibilityService() {
         val det = detection.value
         return DebugSnapshot(
             foregroundPackage = det?.packageName,
+            eventPackage = lastDebugEventPackage,
             matched = det?.isMatch == true,
             surface = (det?.surface ?: DetectionResult.Surface.UNKNOWN).name,
             confidence = det?.confidence ?: 0f,
@@ -317,6 +330,7 @@ class ScrollKillAccessibilityService : AccessibilityService() {
         if (BuildConfig.DEBUG) debugInstance = null
         // HAY QUE ELIMINAR (Session 13 detector token verify)
         lastDebugTokens = null
+        lastDebugEventPackage = null
         eventFilter.clear()
         blockingEngine.reset()
         // Persist the session in progress before we lose it. One row on teardown, so a
