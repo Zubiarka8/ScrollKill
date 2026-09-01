@@ -2,8 +2,8 @@ package com.ikasle.scrollkill.ui.settings
 
 import android.content.Context
 import androidx.annotation.StringRes
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsSelected
@@ -39,8 +39,10 @@ import org.robolectric.annotation.Config
  *
  * Notes on matching: the screen is a verticalScroll Column, so content below the synthetic
  * Robolectric viewport exists but is not "displayed" - presence checks use assertExists() and
- * interactions performScrollTo() first. Each ChoiceRow merges its Text but keeps the RadioButton
- * as a separate node, so selection is asserted on the RadioButton via the unmerged tree.
+ * interactions performScrollTo() first. The stats-window and retention pickers are still
+ * ChoiceRows (Text + a sibling RadioButton, asserted via [radioFor] on the unmerged tree);
+ * the daily-limit picker is a pill that opens a DropdownMenu, so a pick is: tap the pill,
+ * then tap the menu item.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
@@ -101,7 +103,24 @@ class SettingsScreenTest {
     private fun radioFor(label: String) =
         compose.onNode(isSelectable() and hasAnySibling(hasText(label)), useUnmergedTree = true)
 
-    /** All Switches on the screen, in tree order: [0] master intervene, then Watch, Nudge per app row. */
+    /** The compact limit-pill / menu caption for [limit] ("No limit", "15 min", "1h", "1h 30m"). */
+    private fun pill(limit: DailyLimit): String = when (limit) {
+        DailyLimit.Off -> str(R.string.settings_daily_limit_pill_off)
+        is DailyLimit.Minutes -> {
+            val h = limit.value / 60
+            val m = limit.value % 60
+            when {
+                h == 0 -> str(R.string.settings_daily_limit_pill_minutes, m)
+                m == 0 -> str(R.string.settings_daily_limit_pill_hours, h)
+                else -> str(R.string.settings_daily_limit_pill_hours_minutes, h, m)
+            }
+        }
+    }
+
+    /**
+     * All Switches on the screen, in tree order: [0] master intervene, then Watch and Nudge
+     * per app in the "Watched apps" section, then the enforce switch on each per-app limit row.
+     */
     private fun toggles() = compose.onAllNodes(isToggleable())
 
     @Test
@@ -165,30 +184,30 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun defaultDailyLimit_marksCurrentAndReportsPick() {
+    fun defaultDailyLimit_pillShowsValue_menuPickReports() {
         var picked: DailyLimit? = null
         setScreen(
             SettingsUiState(defaultDailyLimit = DailyLimit.Minutes(30)),
             onPickDefaultDailyLimit = { picked = it },
         )
 
-        radioFor(DailyLimit.Minutes(30).label).assertIsSelected()
-        radioFor(DailyLimit.Off.label).assertIsNotSelected()
+        compose.onNodeWithText(pill(DailyLimit.Minutes(30))).performScrollTo().performClick()
+        // Menu now open: pick the "1h" preset.
+        compose.onNodeWithText(pill(DailyLimit.Minutes(60))).performClick()
 
-        compose.onNodeWithText(DailyLimit.Minutes(60).label).performScrollTo().performClick()
         assertEquals(DailyLimit.Minutes(60), picked)
     }
 
     @Test
-    fun perAppDailyLimit_sectionHidden_whenNoWatchedApp() {
+    fun perAppLimit_rowHidden_whenAppUnwatched() {
         setScreen(SettingsUiState(apps = listOf(app(watched = false))))
 
-        compose.onNodeWithText(str(R.string.settings_section_daily_limit_per_app))
-            .assertDoesNotExist()
+        // Only the "Watched apps" entry, no per-app limit row.
+        compose.onAllNodesWithText("Instagram").assertCountEquals(1)
     }
 
     @Test
-    fun perAppDailyLimit_sectionShown_useDefaultSelected_whenNoOverride() {
+    fun perAppLimit_rowShown_whenWatched() {
         setScreen(
             SettingsUiState(
                 defaultDailyLimit = DailyLimit.Minutes(10),
@@ -196,13 +215,13 @@ class SettingsScreenTest {
             ),
         )
 
-        compose.onNodeWithText(str(R.string.settings_section_daily_limit_per_app)).assertExists()
-        radioFor(str(R.string.settings_daily_limit_use_default, DailyLimit.Minutes(10).label))
-            .assertIsSelected()
+        compose.onNodeWithText(str(R.string.settings_daily_limit_subtitle)).assertExists()
+        // "Watched apps" row + the limit row.
+        compose.onAllNodesWithText("Instagram").assertCountEquals(2)
     }
 
     @Test
-    fun perAppDailyLimit_pickPreset_reportsOverride() {
+    fun perAppLimit_menuPickPreset_reportsOverride() {
         var picked: Pair<String, DailyLimit?>? = null
         setScreen(
             SettingsUiState(
@@ -212,15 +231,15 @@ class SettingsScreenTest {
             onPickAppDailyLimit = { p, l -> picked = p to l },
         )
 
-        // "30 min/day" renders in both the default list and the per-app list; index 1 is the
-        // per-app row (declared, and laid out, after the default section).
-        compose.onAllNodesWithText(DailyLimit.Minutes(30).label)[1].performScrollTo().performClick()
+        // Default pill and the per-app pill both read "No limit"; index 1 is the per-app row.
+        compose.onAllNodesWithText(pill(DailyLimit.Off))[1].performScrollTo().performClick()
+        compose.onNodeWithText(pill(DailyLimit.Minutes(30))).performClick()
 
         assertEquals(pkg to DailyLimit.Minutes(30), picked)
     }
 
     @Test
-    fun perAppDailyLimit_pickUseDefault_reportsClear() {
+    fun perAppLimit_menuUseDefault_reportsClear() {
         var picked: Pair<String, DailyLimit?>? = null
         setScreen(
             SettingsUiState(
@@ -230,31 +249,38 @@ class SettingsScreenTest {
             onPickAppDailyLimit = { p, l -> picked = p to l },
         )
 
-        compose.onNodeWithText(str(R.string.settings_daily_limit_use_default, DailyLimit.Minutes(15).label))
-            .performScrollTo()
-            .performClick()
+        compose.onNodeWithText(pill(DailyLimit.Minutes(5))).performScrollTo().performClick()
+        compose.onNodeWithText(
+            str(R.string.settings_daily_limit_use_default, pill(DailyLimit.Minutes(15))),
+        ).performClick()
 
         assertEquals(pkg to null, picked)
     }
 
     @Test
-    fun defaultDailyLimit_customValue_marksCustomRowSelected() {
-        setScreen(SettingsUiState(defaultDailyLimit = DailyLimit.Minutes(12)))
+    fun perAppLimit_enforceSwitch_reportsFlip() {
+        var reported: Pair<String, Boolean>? = null
+        setScreen(
+            SettingsUiState(apps = listOf(app(watched = true, blocking = false))),
+            onToggleApp = { p, e -> reported = p to e },
+        )
 
-        radioFor(str(R.string.settings_daily_limit_custom_current, DailyLimit.Minutes(12).label))
-            .assertIsSelected()
+        // [0] master, [1] Watch, [2] Nudge (Watched apps section), [3] enforce (limit row).
+        toggles()[3].performScrollTo().performClick()
+
+        assertEquals(pkg to true, reported)
     }
 
     @Test
-    fun defaultDailyLimit_customRow_opensDialog_andReportsTypedMinutes() {
+    fun defaultDailyLimit_menuCustom_opensDialog_andReportsTypedMinutes() {
         var picked: DailyLimit? = null
         setScreen(
             SettingsUiState(defaultDailyLimit = DailyLimit.Off),
             onPickDefaultDailyLimit = { picked = it },
         )
 
-        compose.onNodeWithText(str(R.string.settings_daily_limit_custom))
-            .performScrollTo().performClick()
+        compose.onNodeWithText(pill(DailyLimit.Off)).performScrollTo().performClick()
+        compose.onNodeWithText(str(R.string.settings_daily_limit_custom)).performClick()
         compose.onNode(hasSetTextAction()).performTextInput("42")
         compose.onNodeWithText(str(R.string.settings_daily_limit_custom_dialog_confirm)).performClick()
 
@@ -265,8 +291,8 @@ class SettingsScreenTest {
     fun customDailyLimitDialog_confirmDisabled_forOutOfRangeMinutes() {
         setScreen(SettingsUiState(defaultDailyLimit = DailyLimit.Off))
 
-        compose.onNodeWithText(str(R.string.settings_daily_limit_custom))
-            .performScrollTo().performClick()
+        compose.onNodeWithText(pill(DailyLimit.Off)).performScrollTo().performClick()
+        compose.onNodeWithText(str(R.string.settings_daily_limit_custom)).performClick()
         compose.onNode(hasSetTextAction()).performTextInput("999")
 
         compose.onNodeWithText(str(R.string.settings_daily_limit_custom_dialog_confirm)).assertIsNotEnabled()

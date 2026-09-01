@@ -1,16 +1,24 @@
 package com.ikasle.scrollkill.ui.settings
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -28,11 +36,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.drawable.toBitmap
 import com.ikasle.scrollkill.R
 import com.ikasle.scrollkill.data.settings.DailyLimit
 import com.ikasle.scrollkill.data.settings.RetentionWindow
@@ -106,50 +121,63 @@ fun SettingsScreen(
                 }
             }
 
-            Section(stringResource(R.string.settings_section_daily_limit)) {
-                DailyLimit.PRESETS.forEach { limit ->
-                    ChoiceRow(
-                        label = limit.label,
-                        selected = limit == state.defaultDailyLimit,
-                        onClick = { onPickDefaultDailyLimit(limit) },
-                    )
-                }
-                CustomChoiceRow(
-                    current = state.defaultDailyLimit,
-                    onClick = { customTarget = CustomLimitTarget.Default },
-                )
-            }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                DailyLimitHeader()
 
-            val limitApps = state.apps.filter { it.watchedEnabled }
-            if (limitApps.isNotEmpty()) {
-                Section(stringResource(R.string.settings_section_daily_limit_per_app)) {
-                    limitApps.forEachIndexed { index, app ->
-                        if (index > 0) HorizontalDivider()
-                        Text(
-                            app.displayName,
-                            style = MaterialTheme.typography.titleSmall,
-                            modifier = Modifier.padding(top = 8.dp),
-                        )
-                        ChoiceRow(
-                            label = stringResource(
-                                R.string.settings_daily_limit_use_default,
-                                state.defaultDailyLimit.label,
+                LimitRow(
+                    leading = { Box(Modifier.size(40.dp)) },
+                    title = stringResource(R.string.settings_daily_limit_default_row),
+                    control = {
+                        LimitControl(
+                            value = state.defaultDailyLimit,
+                            defaultLabel = null,
+                            changeDescription = stringResource(
+                                R.string.settings_daily_limit_change,
+                                stringResource(R.string.settings_daily_limit_default_row),
                             ),
-                            selected = !app.dailyLimitIsOverride,
-                            onClick = { onPickAppDailyLimit(app.packageName, null) },
+                            onUseDefault = {},
+                            onPickPreset = onPickDefaultDailyLimit,
+                            onPickCustom = { customTarget = CustomLimitTarget.Default },
                         )
-                        DailyLimit.PRESETS.forEach { limit ->
-                            ChoiceRow(
-                                label = limit.label,
-                                selected = app.dailyLimitIsOverride && limit == app.dailyLimit,
-                                onClick = { onPickAppDailyLimit(app.packageName, limit) },
+                    },
+                    trailing = {},
+                )
+
+                val limitApps = state.apps.filter { it.watchedEnabled }
+                limitApps.forEach { app ->
+                    HorizontalDivider()
+                    LimitRow(
+                        leading = { AppAvatar(app.packageName, app.displayName) },
+                        title = app.displayName,
+                        control = {
+                            LimitControl(
+                                value = app.dailyLimit,
+                                defaultLabel = compactLimitLabel(state.defaultDailyLimit),
+                                changeDescription = stringResource(
+                                    R.string.settings_daily_limit_change,
+                                    app.displayName,
+                                ),
+                                onUseDefault = { onPickAppDailyLimit(app.packageName, null) },
+                                onPickPreset = { onPickAppDailyLimit(app.packageName, it) },
+                                onPickCustom = {
+                                    customTarget = CustomLimitTarget.App(app.packageName)
+                                },
                             )
-                        }
-                        CustomChoiceRow(
-                            current = app.dailyLimit.takeIf { app.dailyLimitIsOverride },
-                            onClick = { customTarget = CustomLimitTarget.App(app.packageName) },
-                        )
-                    }
+                        },
+                        trailing = {
+                            val enforceDescription = stringResource(
+                                R.string.settings_daily_limit_enforce,
+                                app.displayName,
+                            )
+                            Switch(
+                                checked = app.blockingEnabled,
+                                onCheckedChange = { onToggleApp(app.packageName, it) },
+                                modifier = Modifier.semantics {
+                                    contentDescription = enforceDescription
+                                },
+                            )
+                        },
+                    )
                 }
             }
 
@@ -205,22 +233,166 @@ private sealed interface CustomLimitTarget {
     data class App(val packageName: String) : CustomLimitTarget
 }
 
+/** Section heading for the daily-limits list: a tinted badge, a title and a one-line hint. */
+@Composable
+private fun DailyLimitHeader() {
+    Row(
+        modifier = Modifier.padding(bottom = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.primaryContainer),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("⏱", style = MaterialTheme.typography.titleMedium)
+        }
+        Column {
+            Text(
+                stringResource(R.string.settings_section_daily_limit),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                stringResource(R.string.settings_daily_limit_subtitle),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
 /**
- * The "Custom..." radio row in a daily-limit picker. Selected (and shows the value) when
- * [current] is a minute budget with no preset row; a plain "Custom..." prompt otherwise.
+ * One line in the daily-limits list: [leading] (app icon or a spacer), [title] (app name),
+ * then the [control] pill and an optional [trailing] switch, right-aligned.
  */
 @Composable
-private fun CustomChoiceRow(current: DailyLimit?, onClick: () -> Unit) {
-    val isCustom = current != null && DailyLimit.isCustom(current)
-    ChoiceRow(
-        label = if (isCustom) {
-            stringResource(R.string.settings_daily_limit_custom_current, current.label)
+private fun LimitRow(
+    leading: @Composable () -> Unit,
+    title: String,
+    control: @Composable () -> Unit,
+    trailing: @Composable () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        leading()
+        Text(
+            title,
+            modifier = Modifier.weight(1f),
+            fontWeight = FontWeight.Medium,
+        )
+        control()
+        trailing()
+    }
+}
+
+/**
+ * The tappable limit pill plus its dropdown. Shows the compact form of [value]; the menu
+ * offers "Use default" (per-app rows only, when [defaultLabel] is non-null), the
+ * [DailyLimit.PRESETS] and "Custom…".
+ */
+@Composable
+private fun LimitControl(
+    value: DailyLimit,
+    defaultLabel: String?,
+    changeDescription: String,
+    onUseDefault: () -> Unit,
+    onPickPreset: (DailyLimit) -> Unit,
+    onPickCustom: () -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(percent = 50))
+                .clickable { open = true }
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(horizontal = 12.dp, vertical = 6.dp)
+                .semantics { contentDescription = changeDescription },
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(compactLimitLabel(value), style = MaterialTheme.typography.labelLarge)
+            Text(
+                "▾",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            if (defaultLabel != null) {
+                DropdownMenuItem(
+                    text = {
+                        Text(stringResource(R.string.settings_daily_limit_use_default, defaultLabel))
+                    },
+                    onClick = { open = false; onUseDefault() },
+                )
+            }
+            DailyLimit.PRESETS.forEach { preset ->
+                DropdownMenuItem(
+                    text = { Text(compactLimitLabel(preset)) },
+                    onClick = { open = false; onPickPreset(preset) },
+                )
+            }
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.settings_daily_limit_custom)) },
+                onClick = { open = false; onPickCustom() },
+            )
+        }
+    }
+}
+
+/** Circular app icon from the installed package; a coloured monogram when it is not installed. */
+@Composable
+private fun AppAvatar(packageName: String, displayName: String) {
+    val context = LocalContext.current
+    val icon: ImageBitmap? = remember(packageName) {
+        runCatching {
+            context.packageManager.getApplicationIcon(packageName)
+                .toBitmap(width = AVATAR_PX, height = AVATAR_PX)
+                .asImageBitmap()
+        }.getOrNull()
+    }
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceVariant),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (icon != null) {
+            Image(bitmap = icon, contentDescription = null, modifier = Modifier.size(40.dp))
         } else {
-            stringResource(R.string.settings_daily_limit_custom)
-        },
-        selected = isCustom,
-        onClick = onClick,
-    )
+            Text(
+                displayName.take(1).uppercase(),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/** Compact limit caption for the pill and the menu: "No limit", "15 min", "1h", "1h 30m". */
+@Composable
+private fun compactLimitLabel(limit: DailyLimit): String = when (limit) {
+    DailyLimit.Off -> stringResource(R.string.settings_daily_limit_pill_off)
+    is DailyLimit.Minutes -> {
+        val h = limit.value / MINUTES_PER_HOUR
+        val m = limit.value % MINUTES_PER_HOUR
+        when {
+            h == 0 -> stringResource(R.string.settings_daily_limit_pill_minutes, m)
+            m == 0 -> stringResource(R.string.settings_daily_limit_pill_hours, h)
+            else -> stringResource(R.string.settings_daily_limit_pill_hours_minutes, h, m)
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -359,6 +531,9 @@ private fun SwitchWithLabel(
         Switch(checked = checked, enabled = enabled, onCheckedChange = onCheckedChange)
     }
 }
+
+private const val AVATAR_PX = 144
+private const val MINUTES_PER_HOUR = 60
 
 @Composable
 private fun ChoiceRow(label: String, selected: Boolean, onClick: () -> Unit) {
