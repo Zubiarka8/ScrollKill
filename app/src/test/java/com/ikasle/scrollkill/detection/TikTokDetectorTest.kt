@@ -70,6 +70,26 @@ class TikTokDetectorTest {
     }
 
     @Test
+    fun `For You feed viewId and text (no contentDescription) still detect SHORT_VIDEO`() {
+        // Reproduces the "TikTok daily limit never blocks" bug: on real TikTok builds "For
+        // You" / "Following" are android:text on the tab bar, not contentDescription, so
+        // relying on contentDescriptions alone left this detector capped at 0.55 (never
+        // matching). See docs/maintenance/detector-token-recheck.md gap B-2.
+        val result = detector.detect(
+            ScreenSnapshot(
+                packageName = "com.zhiliaoapp.musically",
+                viewIds = setOf(feedViewId),
+                texts = listOf(feedContentDesc),
+            ),
+        )
+
+        assertTrue(result.isMatch)
+        assertEquals(Surface.SHORT_VIDEO, result.surface)
+        assertTrue("confidence was ${result.confidence}", result.confidence >= 0.60f)
+        assertTrue(result.matchedSignals.containsAll(setOf(Signal.VIEW_ID, Signal.TEXT)))
+    }
+
+    @Test
     fun `confidence is clamped to 1 when every signal fires`() {
         val result = detector.detect(
             ScreenSnapshot(

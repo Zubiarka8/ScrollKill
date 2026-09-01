@@ -27,9 +27,27 @@ class InstagramDetector : AppDetector {
         // Priority order: the first surface with the top score wins a tie, so keep the
         // more specific surfaces ahead of the broad home feed.
         val scored = listOf(
-            Surface.SHORT_VIDEO to score(snapshot, REELS_VIEW_ID_TOKENS, REELS_CLASS_TOKENS, REELS_CONTENT_DESC_TOKENS),
-            Surface.EXPLORE to score(snapshot, EXPLORE_VIEW_ID_TOKENS, EXPLORE_CLASS_TOKENS, EXPLORE_CONTENT_DESC_TOKENS),
-            Surface.FEED to score(snapshot, FEED_VIEW_ID_TOKENS, FEED_CLASS_TOKENS, FEED_CONTENT_DESC_TOKENS),
+            Surface.SHORT_VIDEO to score(
+                snapshot,
+                REELS_VIEW_ID_TOKENS,
+                REELS_CLASS_TOKENS,
+                REELS_CONTENT_DESC_TOKENS,
+                REELS_TEXT_TOKENS,
+            ),
+            Surface.EXPLORE to score(
+                snapshot,
+                EXPLORE_VIEW_ID_TOKENS,
+                EXPLORE_CLASS_TOKENS,
+                EXPLORE_CONTENT_DESC_TOKENS,
+                EXPLORE_TEXT_TOKENS,
+            ),
+            Surface.FEED to score(
+                snapshot,
+                FEED_VIEW_ID_TOKENS,
+                FEED_CLASS_TOKENS,
+                FEED_CONTENT_DESC_TOKENS,
+                FEED_TEXT_TOKENS,
+            ),
         )
         val (surface, best) = scored.maxByOrNull { it.second.confidence }!!
 
@@ -51,6 +69,7 @@ class InstagramDetector : AppDetector {
         viewIdTokens: List<String>,
         classTokens: List<String>,
         contentDescTokens: List<String>,
+        textTokens: List<String>,
     ): Score {
         var confidence = WEIGHT_PACKAGE
         val signals = mutableSetOf(Signal.PACKAGE_NAME)
@@ -67,6 +86,10 @@ class InstagramDetector : AppDetector {
             confidence += WEIGHT_CONTENT_DESC
             signals += Signal.CONTENT_DESCRIPTION
         }
+        if (snapshot.texts.containsAnyToken(textTokens)) {
+            confidence += WEIGHT_TEXT
+            signals += Signal.TEXT
+        }
 
         return Score(confidence.coerceAtMost(1f), signals)
     }
@@ -82,6 +105,7 @@ class InstagramDetector : AppDetector {
         const val WEIGHT_VIEW_ID = 0.45f
         const val WEIGHT_CLASS_NAME = 0.25f
         const val WEIGHT_CONTENT_DESC = 0.25f
+        const val WEIGHT_TEXT = 0.25f
         const val MATCH_THRESHOLD = 0.60f
 
         // TODO(instagram): verify all token lists against current Instagram build; expected to drift.
@@ -89,12 +113,26 @@ class InstagramDetector : AppDetector {
         val REELS_CLASS_TOKENS = listOf("ClipsViewerFragment", "ReelViewerFragment")
         val REELS_CONTENT_DESC_TOKENS = listOf("Reel by", "Audio page", "Like number")
 
+        // No text-only label identified yet for this surface (see detector-token-recheck.md);
+        // left empty rather than guessing new tokens.
+        val REELS_TEXT_TOKENS = emptyList<String>()
+
         val EXPLORE_VIEW_ID_TOKENS = listOf("explore_grid", "explore_recycler_view", "search_and_explore")
         val EXPLORE_CLASS_TOKENS = listOf("ExploreFragment", "ExploreGridFragment", "DiscoverFragment")
         val EXPLORE_CONTENT_DESC_TOKENS = listOf("Search and explore", "Explore", "Trending")
 
+        // "Explore" is a single-word nav-bar label: likely android:text, not
+        // contentDescription (docs/maintenance/detector-token-recheck.md gap B-2). Checked
+        // against snapshot.texts too so a real capture where it only lands as text still
+        // contributes a signal.
+        val EXPLORE_TEXT_TOKENS = listOf("Explore")
+
         val FEED_VIEW_ID_TOKENS = listOf("feed_timeline_recycler_view", "main_feed_recycler_view", "feed_recycler_view")
         val FEED_CLASS_TOKENS = listOf("MainFeedFragment", "FeedTimelineFragment")
         val FEED_CONTENT_DESC_TOKENS = listOf("Photo by", "New posts", "Your story", "Suggested for you")
+
+        // No text-only label identified yet for this surface (see detector-token-recheck.md);
+        // left empty rather than guessing new tokens.
+        val FEED_TEXT_TOKENS = emptyList<String>()
     }
 }

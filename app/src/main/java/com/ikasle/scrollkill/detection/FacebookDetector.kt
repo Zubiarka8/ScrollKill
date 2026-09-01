@@ -32,12 +32,14 @@ class FacebookDetector : AppDetector {
             FEED_VIEW_ID_TOKENS,
             FEED_CLASS_TOKENS,
             FEED_CONTENT_DESC_TOKENS,
+            FEED_TEXT_TOKENS,
         )
         val reels = score(
             snapshot,
             REELS_VIEW_ID_TOKENS,
             REELS_CLASS_TOKENS,
             REELS_CONTENT_DESC_TOKENS,
+            REELS_TEXT_TOKENS,
         )
 
         // Tie goes to reels: the Reels player is the more specific state.
@@ -65,6 +67,7 @@ class FacebookDetector : AppDetector {
         viewIdTokens: List<String>,
         classTokens: List<String>,
         contentDescTokens: List<String>,
+        textTokens: List<String>,
     ): Score {
         var confidence = WEIGHT_PACKAGE
         val signals = mutableSetOf(Signal.PACKAGE_NAME)
@@ -80,6 +83,10 @@ class FacebookDetector : AppDetector {
         if (snapshot.contentDescriptions.containsAnyToken(contentDescTokens)) {
             confidence += WEIGHT_CONTENT_DESC
             signals += Signal.CONTENT_DESCRIPTION
+        }
+        if (snapshot.texts.containsAnyToken(textTokens)) {
+            confidence += WEIGHT_TEXT
+            signals += Signal.TEXT
         }
 
         return Score(confidence.coerceAtMost(1f), signals)
@@ -97,6 +104,7 @@ class FacebookDetector : AppDetector {
         const val WEIGHT_VIEW_ID = 0.45f
         const val WEIGHT_CLASS_NAME = 0.25f
         const val WEIGHT_CONTENT_DESC = 0.25f
+        const val WEIGHT_TEXT = 0.25f
         const val MATCH_THRESHOLD = 0.60f
 
         // TODO(facebook): verify against current Facebook build; expected to drift.
@@ -108,6 +116,12 @@ class FacebookDetector : AppDetector {
         // TODO(facebook): verify against current Facebook build; expected to drift.
         val FEED_CONTENT_DESC_TOKENS = listOf("What's on your mind", "News Feed", "Stories tray")
 
+        // "What's on your mind" is the composer hint: almost certainly android:text, not
+        // contentDescription (docs/maintenance/detector-token-recheck.md gap B-2). Checked
+        // against snapshot.texts too so a real capture where it only lands as text still
+        // contributes a signal.
+        val FEED_TEXT_TOKENS = listOf("What's on your mind")
+
         // TODO(facebook): verify against current Facebook build; expected to drift.
         val REELS_VIEW_ID_TOKENS = listOf("reels_viewer", "video_home_reels", "reels_tab", "reels_root")
 
@@ -116,5 +130,9 @@ class FacebookDetector : AppDetector {
 
         // TODO(facebook): verify against current Facebook build; expected to drift.
         val REELS_CONTENT_DESC_TOKENS = listOf("Reel by", "Reels", "Play reel")
+
+        // No text-only label identified yet for this surface (see detector-token-recheck.md);
+        // left empty rather than guessing new tokens.
+        val REELS_TEXT_TOKENS = emptyList<String>()
     }
 }

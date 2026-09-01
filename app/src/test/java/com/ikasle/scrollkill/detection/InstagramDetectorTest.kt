@@ -124,6 +124,24 @@ class InstagramDetectorTest {
     }
 
     @Test
+    fun `Explore viewId and text (no contentDescription) still detect EXPLORE`() {
+        // "Explore" is likely android:text on the nav bar, not contentDescription (see
+        // docs/maintenance/detector-token-recheck.md gap B-2).
+        val result = detector.detect(
+            ScreenSnapshot(
+                packageName = "com.instagram.android",
+                viewIds = setOf(exploreViewId),
+                texts = listOf("Explore"),
+            ),
+        )
+
+        assertTrue(result.isMatch)
+        assertEquals(Surface.EXPLORE, result.surface)
+        assertTrue("confidence was ${result.confidence}", result.confidence >= 0.60f)
+        assertTrue(result.matchedSignals.containsAll(setOf(Signal.VIEW_ID, Signal.TEXT)))
+    }
+
+    @Test
     fun `Reels cues outscore feed cues when both are present`() {
         val result = detector.detect(
             ScreenSnapshot(
