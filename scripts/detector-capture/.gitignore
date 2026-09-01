@@ -1,0 +1,3 @@
+# Raw uiautomator dumps - device-/run-specific. Copy the ones worth keeping into
+# app/src/test/resources/detector-fixtures/ (those are committed).
+out/

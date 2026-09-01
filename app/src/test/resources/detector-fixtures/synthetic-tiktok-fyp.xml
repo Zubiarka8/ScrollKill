@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+<!-- SYNTHETIC, hand-authored - NOT a real device capture. -->
+<!-- Exercises the parser + the current TikTokDetector token lists end to end so the harness -->
+<!-- is testable with no device. Replace with real captures via scripts/detector-capture/. -->
+<hierarchy rotation="0">
+  <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="com.zhiliaoapp.musically" content-desc="" bounds="[0,0][1080,2400]">
+    <node index="0" text="" resource-id="com.zhiliaoapp.musically:id/feed_recycler_view" class="androidx.recyclerview.widget.RecyclerView" package="com.zhiliaoapp.musically" content-desc="" bounds="[0,0][1080,2400]">
+      <node index="0" text="Following" resource-id="" class="android.widget.TextView" package="com.zhiliaoapp.musically" content-desc="" bounds="[40,120][300,180]" />
+      <node index="1" text="For You" resource-id="" class="android.widget.TextView" package="com.zhiliaoapp.musically" content-desc="" bounds="[300,120][560,180]" />
+      <node index="2" text="" resource-id="com.zhiliaoapp.musically:id/video_container" class="android.widget.FrameLayout" package="com.zhiliaoapp.musically" content-desc="For You" bounds="[0,180][1080,2400]" />
+    </node>
+  </node>
+</hierarchy>
