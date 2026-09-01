@@ -57,6 +57,27 @@ class UiHierarchyFixtureTest {
         assertTrue("confidence was ${result.confidence}", result.confidence >= 0.60f)
     }
 
+    /**
+     * Real es-locale captures (OPPO Find X9 Pro / ColorOS 16). Before this fix all three
+     * scored 0.10: SnapshotExtractor.MAX_DEPTH = 12 hid every signal node (they sit at depth
+     * 15-28) and the detectors carried English-only text/contentDescription tokens. Regression
+     * guard for both the raised depth cap and the Spanish tokens.
+     */
+    @Test
+    fun `real es-locale short-video captures are detected as SHORT_VIDEO`() {
+        for (fixture in listOf("tiktok-fyp.xml", "instagram-reels.xml", "youtube-shorts.xml")) {
+            val root = UiHierarchyFixture.parse(readFixture(fixture))
+            val snapshot = SnapshotExtractor().extract("", root, fromWindowStateChange = false)
+            val result = ScreenDetector.default().detect(snapshot)
+
+            assertEquals(fixture, Surface.SHORT_VIDEO, result.surface)
+            assertTrue(
+                "$fixture confidence was ${result.confidence}",
+                result.confidence >= 0.60f,
+            )
+        }
+    }
+
     private fun readFixture(name: String): String =
         checkNotNull(javaClass.classLoader?.getResourceAsStream("detector-fixtures/$name")) {
             "missing test resource detector-fixtures/$name"

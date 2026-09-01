@@ -77,13 +77,17 @@ class TikTokDetector : AppDetector {
         val FEED_CLASS_TOKENS = listOf("FeedRecommendFragment", "MainFragment", "FeedFragment", "VideoViewHolder")
 
         // TODO(tiktok): verify against current TikTok build; expected to drift.
-        val FEED_CONTENT_DESC_TOKENS = listOf("For You", "Following", "Like number", "Speed dial")
+        // "Para ti" / "Siguiendo" are the Spanish top-tab labels, confirmed on a real
+        // es-locale capture (detector-fixtures/tiktok-fyp.xml): they land on the tab strip
+        // as both text and contentDescription at depth ~21-22. With TikTok's viewIds
+        // obfuscated (X.05pj / three-letter ids), this text+contentDesc pair is the only
+        // route to MATCH_THRESHOLD on that build.
+        val FEED_CONTENT_DESC_TOKENS =
+            listOf("For You", "Following", "Like number", "Speed dial", "Para ti", "Siguiendo")
 
-        // "For You" / "Following" are the top-tab labels: almost certainly android:text on
-        // the tab bar, not contentDescription (docs/maintenance/detector-token-recheck.md
-        // gap B-2). Checked against snapshot.texts as well so a real capture where they only
-        // land as text still crosses MATCH_THRESHOLD alongside VIEW_ID. Also localized, so
-        // this still misses non-English devices - out of scope for this fix.
-        val FEED_TEXT_TOKENS = listOf("For You", "Following")
+        // Same labels checked against snapshot.texts (gap B-2: on real builds they are
+        // android:text on the tab bar, not contentDescription). English + Spanish; other
+        // locales still need their tab labels added here.
+        val FEED_TEXT_TOKENS = listOf("For You", "Following", "Para ti", "Siguiendo")
     }
 }

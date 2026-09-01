@@ -69,6 +69,9 @@ class YouTubeShortsDetector : AppDetector {
         const val MATCH_THRESHOLD = 0.60f
 
         // TODO(youtube): verify against current YouTube build; expected to drift.
+        // reel_recycler / reel_player_page confirmed on a real capture
+        // (detector-fixtures/youtube-shorts.xml) at depth 19-21 - reachable only since
+        // SnapshotExtractor.MAX_DEPTH was raised (bug B-4).
         val SHORTS_VIEW_ID_TOKENS = listOf("reel_recycler", "reel_player_page", "reel_watch_pager", "shorts_container")
 
         // TODO(youtube): verify against current YouTube build; expected to drift.
@@ -77,10 +80,11 @@ class YouTubeShortsDetector : AppDetector {
         // TODO(youtube): verify against current YouTube build; expected to drift.
         val SHORTS_CONTENT_DESC_TOKENS = listOf("Shorts player", "Short number", "Shorts feed")
 
-        // No text-only label identified yet for this surface (docs/maintenance/detector-token-
-        // recheck.md gap B-2 flags the other three detectors' CONTENT_DESCRIPTION tokens as
-        // likely text; none of these three were called out the same way). Left empty rather
-        // than guessing new tokens.
-        val SHORTS_TEXT_TOKENS = emptyList<String>()
+        // YouTube keeps the label "Shorts" untranslated (verified on an es-locale capture),
+        // so one token covers every locale. It is the nav pivot caption on the Home tab too,
+        // so it is checked in ONE group only: on its own it adds 0.25 (-> 0.35, no match) and
+        // crosses MATCH_THRESHOLD only alongside a reel_* viewId, which is exclusive to the
+        // Shorts player.
+        val SHORTS_TEXT_TOKENS = listOf("Shorts")
     }
 }

@@ -9,6 +9,12 @@ import com.ikasle.scrollkill.detection.ScreenSnapshot
  * [maxNodes] nodes or beyond [maxDepth] levels, so a pathological tree can never stall the
  * accessibility callback. Kept in the service layer so the detectors stay framework-free.
  *
+ * The per-event cost is bounded by [maxNodes] (BFS stops at that count regardless of depth);
+ * [maxDepth] only decides how deep the walk is allowed to reach within that budget. Real
+ * social-app feed hierarchies are 20-32 levels deep and the container ids / localized labels
+ * the detectors key on sit at depth 15-28 (see docs/maintenance/detector-token-recheck.md,
+ * bug B-4), so a shallow [maxDepth] silently starves detection while looking bounded.
+ *
  * It walks [NodeView], not [android.view.accessibility.AccessibilityNodeInfo] directly, so
  * the walk can be unit-tested with a fake tree; the service passes an [AccessibilityNodeView].
  */
@@ -86,7 +92,14 @@ class SnapshotExtractor(
     private data class NodeAtDepth(val node: NodeView, val depth: Int)
 
     private companion object {
-        const val MAX_NODES = 400
-        const val MAX_DEPTH = 12
+        // Node ceiling: the actual per-event work bound. Observed real feed trees are
+        // ~100-170 nodes; 600 is safety headroom, not an expected load.
+        const val MAX_NODES = 600
+
+        // Depth ceiling: must clear the deepest signal-bearing node in a real feed. Observed
+        // maxima are 32 (TikTok, IG Reels); 28 reaches the feed containers and the localized
+        // tab labels (TikTok "Para ti" @22, IG "Reel de ..." @22, IG clips_viewer @18,
+        // YouTube reel_recycler @20) without walking pathologically deep.
+        const val MAX_DEPTH = 28
     }
 }

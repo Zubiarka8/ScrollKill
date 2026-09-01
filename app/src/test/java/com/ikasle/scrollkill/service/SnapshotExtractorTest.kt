@@ -110,6 +110,19 @@ class SnapshotExtractorTest {
     }
 
     @Test
+    fun `the default depth cap reaches feed containers that sit below level 12`() {
+        // Real social-app feed containers / localized labels sit at depth 15-28
+        // (docs/maintenance/detector-token-recheck.md bug B-4). A chain 20 deep with the
+        // signal on the leaf must still be collected by the default extractor.
+        var leaf: FakeNode = node(viewId = "clips_viewer_view_pager")
+        repeat(20) { leaf = node(children = listOf(leaf)) }
+
+        val snapshot = SnapshotExtractor().extract("com.instagram.android", leaf, false)
+
+        assertTrue("clips_viewer_view_pager" in snapshot.viewIds)
+    }
+
+    @Test
     fun `nodes deeper than maxDepth are not visited`() {
         val root = node(
             text = "d0",

@@ -90,6 +90,26 @@ class TikTokDetectorTest {
     }
 
     @Test
+    fun `Spanish tab labels detect SHORT_VIDEO without any viewId`() {
+        // es-locale device: TikTok viewIds are obfuscated, "Para ti" / "Siguiendo" land on
+        // the tab strip as both text and contentDescription. That pair must reach threshold.
+        val result = detector.detect(
+            ScreenSnapshot(
+                packageName = "com.zhiliaoapp.musically",
+                texts = listOf("Para ti"),
+                contentDescriptions = listOf("Para ti"),
+            ),
+        )
+
+        assertTrue(result.isMatch)
+        assertEquals(Surface.SHORT_VIDEO, result.surface)
+        assertTrue("confidence was ${result.confidence}", result.confidence >= 0.60f)
+        assertTrue(
+            result.matchedSignals.containsAll(setOf(Signal.TEXT, Signal.CONTENT_DESCRIPTION)),
+        )
+    }
+
+    @Test
     fun `confidence is clamped to 1 when every signal fires`() {
         val result = detector.detect(
             ScreenSnapshot(

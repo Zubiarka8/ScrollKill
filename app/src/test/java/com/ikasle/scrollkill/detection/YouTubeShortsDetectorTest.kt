@@ -70,6 +70,32 @@ class YouTubeShortsDetectorTest {
     }
 
     @Test
+    fun `the bare Shorts label detects SHORT_VIDEO only with a reel viewId`() {
+        val onShortsPlayer = detector.detect(
+            ScreenSnapshot(
+                packageName = "com.google.android.youtube",
+                viewIds = setOf("com.google.android.youtube:id/reel_recycler"),
+                texts = listOf("Shorts"),
+                contentDescriptions = listOf("Shorts"),
+            ),
+        )
+        assertTrue(onShortsPlayer.isMatch)
+        assertEquals(Surface.SHORT_VIDEO, onShortsPlayer.surface)
+        assertTrue(onShortsPlayer.confidence >= 0.60f)
+
+        // Home tab: the "Shorts" pivot label is on screen but no reel_* container is.
+        val onHomeTab = detector.detect(
+            ScreenSnapshot(
+                packageName = "com.google.android.youtube",
+                viewIds = setOf("com.google.android.youtube:id/pivot_bar"),
+                texts = listOf("Shorts", "Home", "Subscriptions"),
+                contentDescriptions = listOf("Shorts"),
+            ),
+        )
+        assertFalse("Shorts label alone must not match", onHomeTab.isMatch)
+    }
+
+    @Test
     fun `confidence is clamped to 1 when every signal fires`() {
         val result = detector.detect(
             ScreenSnapshot(
