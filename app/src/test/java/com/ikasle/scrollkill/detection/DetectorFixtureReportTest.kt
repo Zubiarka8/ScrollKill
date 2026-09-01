@@ -1,5 +1,6 @@
 package com.ikasle.scrollkill.detection
 
+import com.ikasle.scrollkill.service.NodeView
 import com.ikasle.scrollkill.service.SnapshotExtractor
 import java.io.File
 import java.util.Locale
@@ -53,9 +54,11 @@ class DetectorFixtureReportTest {
         appendLine("--- ${fixture.name}${if (synthetic) "  (SYNTHETIC)" else ""} ---")
 
         val root = UiHierarchyFixture.parse(fixture.readText())
+        val tree = measureTree(root)
         val snapshot = SnapshotExtractor().extract("", root, fromWindowStateChange = false)
         val result = ScreenDetector.default().detect(snapshot)
         val hasDetector = snapshot.packageName in ScreenDetector.default().watchedPackages
+        val truncated = tree.depth > EXTRACTOR_MAX_DEPTH || tree.nodes > EXTRACTOR_MAX_NODES
 
         appendLine("package : ${snapshot.packageName}")
         appendLine(
@@ -64,9 +67,17 @@ class DetectorFixtureReportTest {
                 "signals=${result.matchedSignals.map { it.name }}",
         )
         appendLine(
+            "tree    : ${tree.nodes} nodes, ${tree.depth} deep; extractor caps at " +
+                "${EXTRACTOR_MAX_NODES} nodes / depth ${EXTRACTOR_MAX_DEPTH}" +
+                if (truncated) " -> ${tree.idsBelowCap} id-bearing nodes past the cap are never scored" else "",
+        )
+        appendLine(
             "verdict : " + when {
                 !hasDetector -> "no detector for this package (launcher/other app, or not watched)"
                 result.confidence >= MATCH_THRESHOLD -> "OK - crosses the $MATCH_THRESHOLD threshold"
+                truncated -> "BELOW $MATCH_THRESHOLD - tree exceeds the extractor's depth/node cap; " +
+                    "the distinctive container ids sit below it. Raise SnapshotExtractor caps or " +
+                    "move signals onto shallower nodes before touching token lists."
                 else -> "BELOW $MATCH_THRESHOLD - token drift on this surface; refresh the token lists"
             },
         )
@@ -83,8 +94,29 @@ class DetectorFixtureReportTest {
         if (values.size > MAX_TOKEN_LINES) appendLine("  ... ${values.size - MAX_TOKEN_LINES} more")
     }
 
+    /** Raw shape of the captured hierarchy, before [SnapshotExtractor] applies its caps. */
+    private data class TreeStats(val nodes: Int, val depth: Int, val idsBelowCap: Int)
+
+    private fun measureTree(root: NodeView): TreeStats {
+        var nodes = 0
+        var maxDepth = 0
+        var idsBelowCap = 0
+        fun walk(node: NodeView, depth: Int) {
+            nodes++
+            if (depth > maxDepth) maxDepth = depth
+            if (depth > EXTRACTOR_MAX_DEPTH && !node.viewId.isNullOrBlank()) idsBelowCap++
+            for (i in 0 until node.childCount) node.child(i)?.let { walk(it, depth + 1) }
+        }
+        walk(root, 0)
+        return TreeStats(nodes, maxDepth, idsBelowCap)
+    }
+
     private companion object {
         const val MATCH_THRESHOLD = 0.60f
         const val MAX_TOKEN_LINES = 120
+
+        // Mirror SnapshotExtractor.MAX_NODES / MAX_DEPTH (its companion is private).
+        const val EXTRACTOR_MAX_NODES = 400
+        const val EXTRACTOR_MAX_DEPTH = 12
     }
 }

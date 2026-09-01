@@ -11,5 +11,13 @@ Real (and one synthetic) `uiautomator dump` XML captures, run through the produc
   when no real capture is checked in. Do not treat them as evidence of real app structure.
 - These are committed; the raw dumps under `scripts/detector-capture/out/` are not.
 
+Checked in (all from OPPO Find X9 Pro / ColorOS 16, device language Spanish, 2026-09-01):
+`tiktok-fyp.xml`, `instagram-feed.xml`, `instagram-reels.xml`, `instagram-explore.xml`,
+`youtube-shorts.xml`. Every one currently reports `BELOW 0.60` - see
+`docs/maintenance/detector-token-recheck.md` section 7 for why (depth cap B-4 + drifted
+`VIEW_ID` lists + English-only tokens). Usernames, captions and channel names were replaced
+with `Test User` / `testuser` / `Sample caption`; the structural labels the detectors read
+are untouched. Facebook not captured yet.
+
 A capture may contain user-visible text in `text` / `content-desc` (a username, a caption).
 Trim anything personal before committing - the detectors only need structural labels.
