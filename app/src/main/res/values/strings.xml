@@ -7,6 +7,10 @@
     <string name="nudge_toggle_title">Nudge me off feeds</string>
     <string name="nudge_toggle_subtitle">Press Back automatically when a feed is detected.</string>
 
+    <!-- Toast shown by the accessibility service right after the BACK-press intervention. %1$s is the app name. -->
+    <string name="intervention_toast_limit_reached">Daily limit reached for %1$s</string>
+    <string name="intervention_toast_blocked">%1$s feed closed</string>
+
     <!-- Home screen -->
     <string name="home_action_settings">Settings</string>
     <string name="home_today_zero_duration">0s</string>

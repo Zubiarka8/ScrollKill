@@ -1,11 +1,15 @@
 package com.ikasle.scrollkill.service
 
 import android.accessibilityservice.AccessibilityService
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import android.widget.Toast
 import com.ikasle.scrollkill.BuildConfig
+import com.ikasle.scrollkill.R
 import com.ikasle.scrollkill.ScrollKillApp
 import com.ikasle.scrollkill.blocking.BlockingDecision
 import com.ikasle.scrollkill.blocking.BlockingEngine
@@ -18,6 +22,7 @@ import com.ikasle.scrollkill.detection.DetectionResult
 import com.ikasle.scrollkill.detection.ScreenDetector
 import com.ikasle.scrollkill.session.Session
 import com.ikasle.scrollkill.session.SessionTracker
+import com.ikasle.scrollkill.ui.home.KnownApps
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -150,6 +155,17 @@ class ScrollKillAccessibilityService : AccessibilityService() {
     private var interveneEnabled = true
 
     /**
+     * Packages that currently have a daily limit set, fed from [SettingsRepository]. Lets the
+     * intervention toast tell "daily limit reached" apart from "this app is blocked outright"
+     * (a package with no limit is blocked on sight - see [BlockingEngine]).
+     */
+    @Volatile
+    private var budgetedPackages: Set<String> = emptySet()
+
+    /** Posts the intervention toast on the main thread; [onAccessibilityEvent] runs off it. */
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    /**
      * Packages currently observed: [screenDetector] candidates minus the user's unwatched set,
      * fed from [SettingsRepository]. Also pushed to the framework via [setServiceInfo] so most
      * events are filtered before they reach [onAccessibilityEvent]; this in-process check is
@@ -226,6 +242,7 @@ class ScrollKillAccessibilityService : AccessibilityService() {
                         settings.dailyLimitFor(pkg).budgetMs?.let { pkg to it }
                     }
                     .toMap()
+                budgetedPackages = blockingEngine.dailyBudgetMsByPackage.keys
                 sessionRepository.retentionMs = settings.historyRetention.durationMs
             }
             .launchIn(serviceScope)
@@ -303,7 +320,10 @@ class ScrollKillAccessibilityService : AccessibilityService() {
         _blockingDecision.value = decision
         if (decision is BlockingDecision.Intervene) {
             debugLog("intervene ${decision.surface} in ${decision.packageName} conf=${decision.confidence}")
-            if (interveneEnabled) performGlobalAction(GLOBAL_ACTION_BACK)
+            if (interveneEnabled) {
+                performGlobalAction(GLOBAL_ACTION_BACK)
+                showInterventionToast(decision.packageName)
+            }
         }
 
         sessionTracker.track(result, decision, now)?.let { session ->
@@ -366,6 +386,24 @@ class ScrollKillAccessibilityService : AccessibilityService() {
         if (BuildConfig.DEBUG) Log.d(TAG, message)
     }
 
+    /**
+     * A short toast right after the BACK press, so the user knows why the feed closed rather
+     * than being bounced out silently. Naturally rate-limited: [BlockingEngine] only returns
+     * [BlockingDecision.Intervene] once per cooldown per re-entry. Posted to the main thread
+     * because this is called from the accessibility callback thread.
+     */
+    private fun showInterventionToast(packageName: String) {
+        val appLabel = KnownApps.label(packageName)
+        val message = if (packageName in budgetedPackages) {
+            getString(R.string.intervention_toast_limit_reached, appLabel)
+        } else {
+            getString(R.string.intervention_toast_blocked, appLabel)
+        }
+        mainHandler.post {
+            Toast.makeText(applicationContext, message, Toast.LENGTH_LONG).show()
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         // HAY QUE ELIMINAR (Session 10 battery profiling)
@@ -373,6 +411,7 @@ class ScrollKillAccessibilityService : AccessibilityService() {
         // HAY QUE ELIMINAR (Session 13 detector token verify)
         lastDebugEventPackage = null
         lastWatchedDebug = null
+        mainHandler.removeCallbacksAndMessages(null)
         eventFilter.clear()
         blockingEngine.reset()
         // Persist the session in progress before we lose it. One row on teardown, so a
