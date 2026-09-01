@@ -92,9 +92,11 @@ Planned / not yet built:
   migrate yet; the destructive fallback is already gone and `MigrationTestHelper`
   scaffolding is in place for the first schema change.
 - Verifying the per-app detector view-id and class-name signal tokens against current app
-  builds, plus a repeatable re-check process, as the target apps drift (a related gap - no
-  detector reading the extracted node `text` - is closed; the view-id/class-name lists
-  themselves are still unverified against current builds and need an on-device capture).
+  builds. The gap where no detector read the extracted node `text` is closed, and there is
+  now an offline harness for the re-check: `scripts/detector-capture/` records a real
+  `uiautomator dump` once, then `DetectorFixtureReportTest` replays it through the production
+  `SnapshotExtractor` + `ScreenDetector` on the JVM. The view-id / class-name lists are still
+  unverified against current builds - no real capture is checked in yet.
 - Richer interventions beyond a single Back press.
 - More surfaces and detectors.
 - A designed launcher icon (still the Android Studio template) and general UI polish.
@@ -150,9 +152,14 @@ app/src/main/res/xml/accessibility_service_config.xml
 app/src/test/java/.../         unit tests: detectors, BlockingEngine, SessionTracker,
                                EventFilter, SnapshotExtractor, repositories, view models
                                (Home / Settings / Onboarding) and the Home / Settings
-                               screens (Robolectric + Compose UI test)
+                               screens (Robolectric + Compose UI test); UiHierarchyFixture +
+                               DetectorFixtureReportTest replay captured hierarchies offline
+app/src/test/resources/        detector-fixtures/: committed uiautomator-dump captures the
+                               detector harness replays (one synthetic TikTok fixture so far)
 app/src/androidTest/java/.../  instrumented tests: Room schema / migration
                                (ScrollKillDatabaseMigrationTest)
+scripts/detector-capture/      adb uiautomator-dump scripts (bash + PowerShell) to record a
+                               real view hierarchy, then iterate detectors on the JVM
 ```
 
 ## Building and testing
@@ -167,6 +174,14 @@ is auto-provisioned (JDK 25 via foojay); the app itself compiles to Java 11 byte
 ./gradlew installDebug               # install on a connected device/emulator
 ./gradlew assembleRelease            # release APK; unsigned unless keystore.properties exists
 ```
+
+`testDebugUnitTest` also runs the detector fixture harness: `DetectorFixtureReportTest`
+replays every capture under `app/src/test/resources/detector-fixtures/` through the
+production `SnapshotExtractor` + `ScreenDetector` and writes
+`app/build/reports/detector-fixtures/report.txt` (routed surface, confidence, fired signals,
+token dump per fixture). It always passes - it is a worksheet for fixing token drift without
+a device. Record new captures with `scripts/detector-capture/capture.sh` (or `.ps1`), review
+the XML, then copy it into the fixtures dir.
 
 For a signed release build, copy `keystore.properties.example` to `keystore.properties` (it
 is git-ignored) and fill in the keystore path and credentials. Without that file the release
