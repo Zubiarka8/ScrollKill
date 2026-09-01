@@ -83,17 +83,33 @@ data class DebugTokens(
     }
 }
 
+// HAY QUE ELIMINAR (Session 13 detector token verify): the last snapshot whose package was
+// actually a watched app, frozen so the card still shows a real feed capture after you leave
+// the app to read it (by then the live snapshot is the launcher and its tokens are useless).
+data class WatchedCapture(
+    val packageName: String,
+    val ageMs: Long,
+    val matched: Boolean,
+    val surface: String,
+    val confidence: Float,
+    val signals: String,
+    val tokens: DebugTokens,
+)
+
 // HAY QUE ELIMINAR (Session 10 battery profiling): payload for ui.settings.DebugDetectionPanel.
 data class DebugSnapshot(
+    /** Package the detector actually ran against on the last event (from the walked node tree). */
     val foregroundPackage: String?,
+    /** Package the last event named; differs from [foregroundPackage] on a mid-switch capture. */
+    val eventPackage: String?,
     val matched: Boolean,
     val surface: String,
     val confidence: Float,
     val signals: String,
     val decision: String,
     val usage: List<DebugUsage>,
-    // HAY QUE ELIMINAR (Session 13 detector token verify)
-    val tokens: DebugTokens?,
+    // HAY QUE ELIMINAR (Session 13 detector token verify): last capture on a real watched app.
+    val watched: WatchedCapture?,
 )
 
 /**
@@ -145,9 +161,25 @@ class ScrollKillAccessibilityService : AccessibilityService() {
     /** Whether [activeWatchedPackages] has been pushed to the framework via [setServiceInfo]. */
     private var watchedPushedToFramework = false
 
-    // HAY QUE ELIMINAR (Session 13 detector token verify): raw tokens from the last snapshot.
+    // HAY QUE ELIMINAR (Session 13 detector token verify): package the last processed event
+    // named, kept so the debug card can flag it when it differs from the package actually on
+    // screen (a capture taken mid app-switch is not the target app, only looks like it).
     @Volatile
-    private var lastDebugTokens: DebugTokens? = null
+    private var lastDebugEventPackage: String? = null
+
+    // HAY QUE ELIMINAR (Session 13 detector token verify): last snapshot whose on-screen
+    // package was a watched app, plus its detection result and capture time. Frozen so the
+    // card still shows a real feed capture after the user switches to Settings to read it.
+    @Volatile
+    private var lastWatchedDebug: WatchedDebugHold? = null
+
+    // HAY QUE ELIMINAR (Session 13 detector token verify)
+    private class WatchedDebugHold(
+        val packageName: String,
+        val capturedAtMs: Long,
+        val result: DetectionResult,
+        val tokens: DebugTokens,
+    )
 
     private val _detection = MutableStateFlow<DetectionResult?>(null)
 
@@ -252,9 +284,19 @@ class ScrollKillAccessibilityService : AccessibilityService() {
         val result = screenDetector.detect(snapshot)
         _detection.value = result
         // HAY QUE ELIMINAR (Session 13 detector token verify)
-        if (BuildConfig.DEBUG) lastDebugTokens = DebugTokens.from(snapshot)
+        if (BuildConfig.DEBUG) {
+            lastDebugEventPackage = pkg
+            if (snapshot.packageName in screenDetector.watchedPackages) {
+                lastWatchedDebug = WatchedDebugHold(
+                    packageName = snapshot.packageName,
+                    capturedAtMs = now,
+                    result = result,
+                    tokens = DebugTokens.from(snapshot),
+                )
+            }
+        }
         if (result.isMatch) {
-            debugLog("detected ${result.surface} in $pkg conf=${result.confidence}")
+            debugLog("detected ${result.surface} in ${snapshot.packageName} conf=${result.confidence}")
         }
 
         val decision = blockingEngine.decide(result, now)
@@ -281,6 +323,7 @@ class ScrollKillAccessibilityService : AccessibilityService() {
         val det = detection.value
         return DebugSnapshot(
             foregroundPackage = det?.packageName,
+            eventPackage = lastDebugEventPackage,
             matched = det?.isMatch == true,
             surface = (det?.surface ?: DetectionResult.Surface.UNKNOWN).name,
             confidence = det?.confidence ?: 0f,
@@ -297,7 +340,19 @@ class ScrollKillAccessibilityService : AccessibilityService() {
                 )
             },
             // HAY QUE ELIMINAR (Session 13 detector token verify)
-            tokens = lastDebugTokens,
+            watched = lastWatchedDebug?.let { h ->
+                WatchedCapture(
+                    packageName = h.packageName,
+                    ageMs = now - h.capturedAtMs,
+                    matched = h.result.isMatch,
+                    surface = h.result.surface.name,
+                    confidence = h.result.confidence,
+                    signals = h.result.matchedSignals
+                        .joinToString(",") { it.name }
+                        .ifEmpty { "-" },
+                    tokens = h.tokens,
+                )
+            },
         )
     }
 
@@ -316,7 +371,8 @@ class ScrollKillAccessibilityService : AccessibilityService() {
         // HAY QUE ELIMINAR (Session 10 battery profiling)
         if (BuildConfig.DEBUG) debugInstance = null
         // HAY QUE ELIMINAR (Session 13 detector token verify)
-        lastDebugTokens = null
+        lastDebugEventPackage = null
+        lastWatchedDebug = null
         eventFilter.clear()
         blockingEngine.reset()
         // Persist the session in progress before we lose it. One row on teardown, so a

@@ -125,6 +125,7 @@ class CountingNodeView(
     private val delegate: NodeView,
     private val onChildCall: () -> Unit,
 ) : NodeView {
+    override val packageName: CharSequence? get() = delegate.packageName
     override val viewId: String? get() = delegate.viewId
     override val className: CharSequence? get() = delegate.className
     override val text: CharSequence? get() = delegate.text

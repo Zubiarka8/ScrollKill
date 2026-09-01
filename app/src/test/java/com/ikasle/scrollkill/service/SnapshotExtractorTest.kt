@@ -20,6 +20,27 @@ class SnapshotExtractorTest {
     }
 
     @Test
+    fun `snapshot is keyed on the root package, not the triggering event package`() {
+        // The event fired from the app that is leaving; getRootInActiveWindow already points
+        // at whatever replaced it. Detection must run against what is really on screen.
+        val root = node(viewId = "list", packageName = "com.android.launcher")
+
+        val snapshot = SnapshotExtractor()
+            .extract("com.zhiliaoapp.musically", root, fromWindowStateChange = false)
+
+        assertEquals("com.android.launcher", snapshot.packageName)
+    }
+
+    @Test
+    fun `falls back to the event package when the root has no package`() {
+        val root = node(viewId = "list", packageName = "  ")
+
+        val snapshot = SnapshotExtractor().extract("com.instagram.android", root, false)
+
+        assertEquals("com.instagram.android", snapshot.packageName)
+    }
+
+    @Test
     fun `collects ids, class names, text and content descriptions across the tree`() {
         val root = node(
             viewId = "root",
@@ -135,14 +156,16 @@ class SnapshotExtractorTest {
         className: CharSequence? = null,
         text: CharSequence? = null,
         contentDescription: CharSequence? = null,
+        packageName: CharSequence? = null,
         children: List<FakeNode> = emptyList(),
-    ) = FakeNode(viewId, className, text, contentDescription, children)
+    ) = FakeNode(viewId, className, text, contentDescription, packageName, children)
 
     private class FakeNode(
         override val viewId: String?,
         override val className: CharSequence?,
         override val text: CharSequence?,
         override val contentDescription: CharSequence?,
+        override val packageName: CharSequence?,
         private val children: List<FakeNode>,
     ) : NodeView {
 

@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.ikasle.scrollkill.service.DebugSnapshot
 import com.ikasle.scrollkill.service.ScrollKillAccessibilityService
+import com.ikasle.scrollkill.service.WatchedCapture
 import com.ikasle.scrollkill.ui.home.KnownApps
 import java.util.Locale
 import kotlinx.coroutines.delay
@@ -83,7 +84,14 @@ private fun renderSnapshot(s: DebugSnapshot?): String {
         return "AccessibilityService not running.\nEnable it, scroll the app, then reopen this screen."
     }
     val b = StringBuilder()
-    b.appendLine("foreground : ${s.foregroundPackage ?: "-"}")
+    val onScreen = s.foregroundPackage ?: "-"
+    b.appendLine("screen pkg : $onScreen")
+    // A capture taken while switching apps carries the leaving app's event but the
+    // arriving app's (or the launcher's) node tree - detection runs against `screen pkg`,
+    // so if these differ the capture is not the app you think you captured.
+    if (s.eventPackage != null && s.eventPackage != s.foregroundPackage) {
+        b.appendLine("event pkg  : ${s.eventPackage}  <-- MISMATCH, re-capture on the app")
+    }
     b.appendLine(
         "last match : ${if (s.matched) s.surface else "none"}  " +
             "(conf ${String.format(Locale.US, "%.2f", s.confidence)})",
@@ -98,26 +106,38 @@ private fun renderSnapshot(s: DebugSnapshot?): String {
             b.appendLine("${KnownApps.label(u.packageName)} : ${formatMs(u.usedMs)} / $budget")
         }
     }
-    // HAY QUE ELIMINAR (Session 13 detector token verify): raw signals from the last snapshot.
-    val t = s.tokens
-    if (t == null) {
-        b.appendLine()
-        b.appendLine("tokens     : (none yet - scroll the app's feed, then reopen)")
-    } else {
-        b.appendLine()
-        b.appendLine("--- last snapshot tokens (${s.foregroundPackage ?: "-"}) ---")
-        b.appendLine("viewIds (${t.viewIds.size}):")
-        t.viewIds.forEach { b.appendLine("  $it") }
-        b.appendLine("classNames (${t.classNames.size}):")
-        t.classNames.forEach { b.appendLine("  $it") }
-        b.appendLine("contentDescriptions (${t.contentDescriptions.size}, digit-free <=40ch):")
-        t.contentDescriptions.forEach { b.appendLine("  $it") }
-        // HAY QUE ELIMINAR (Session 13 detector token verify): texts are extracted but no
-        // detector reads them; needed to tell token drift from a wrong-bucket token.
-        b.appendLine("texts (${t.texts.size}, digit-free <=40ch):")
-        t.texts.forEach { b.appendLine("  $it") }
-    }
+    // HAY QUE ELIMINAR (Session 13 detector token verify): the last capture that was really on
+    // a watched app, frozen. Read this block, not the live lines above, for token work - by
+    // the time you switch here the live snapshot is the launcher.
+    appendWatchedCapture(b, s.watched)
     return b.toString().trimEnd()
+}
+
+// HAY QUE ELIMINAR (Session 13 detector token verify)
+private fun appendWatchedCapture(b: StringBuilder, w: WatchedCapture?) {
+    b.appendLine()
+    if (w == null) {
+        b.appendLine("watched capture: none yet - open the app's feed, scroll, then reopen this")
+        return
+    }
+    b.appendLine("--- last watched-app capture: ${w.packageName}  (${w.ageMs / 1_000}s ago) ---")
+    b.appendLine(
+        "match   : ${if (w.matched) w.surface else "none"}  " +
+            "(conf ${String.format(Locale.US, "%.2f", w.confidence)})",
+    )
+    b.appendLine("signals : ${w.signals}")
+    appendTokenList(b, "viewIds", w.tokens.viewIds)
+    appendTokenList(b, "classNames", w.tokens.classNames)
+    appendTokenList(b, "contentDescriptions", w.tokens.contentDescriptions)
+    // texts are extracted but no detector reads them; needed to tell token drift from a
+    // wrong-bucket token.
+    appendTokenList(b, "texts", w.tokens.texts)
+}
+
+// HAY QUE ELIMINAR (Session 13 detector token verify)
+private fun appendTokenList(b: StringBuilder, label: String, values: List<String>) {
+    b.appendLine("$label (${values.size}):")
+    values.forEach { b.appendLine("  $it") }
 }
 
 private fun formatMs(ms: Long): String {
